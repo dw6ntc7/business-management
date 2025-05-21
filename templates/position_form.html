@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>{% if position %}Position bearbeiten{% else %}Neue Position anlegen{% endif %}</h2>
+<form method="post">
+    <div class="mb-3">
+        <label for="name" class="form-label">Name</label>
+        <input type="text" class="form-control" id="name" name="name" required value="{{ position.name if position else '' }}">
+    </div>
+    <div class="mb-3">
+        <label for="description" class="form-label">Beschreibung</label>
+        <textarea class="form-control" id="description" name="description">{{ position.description if position else '' }}</textarea>
+    </div>
+    <div class="mb-3">
+        <label for="unit" class="form-label">Einheit</label>
+        <input type="text" class="form-control" id="unit" name="unit" value="{{ position.unit if position else 'Stunde' }}">
+    </div>
+    <div class="mb-3">
+        <label for="price" class="form-label">Preis</label>
+        <input type="number" step="0.01" class="form-control" id="price" name="price" required value="{{ position.price if position else '' }}">
+    </div>
+    <div class="mb-3">
+        <label for="vat" class="form-label">MwSt (%)</label>
+        <input type="number" step="0.01" class="form-control" id="vat" name="vat" value="{{ position.vat if position else '20.0' }}">
+    </div>
+    <button type="submit" class="btn btn-success">Speichern</button>
+    <a href="/positions" class="btn btn-secondary">Abbrechen</a>
+</form>
+{% endblock %}

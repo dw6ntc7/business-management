@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Angebote</h2>
+<a href="/offers/new" class="btn btn-primary mb-3">Neues Angebot erstellen</a>
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Nummer</th>
+            <th>Titel</th>
+            <th>Kunde</th>
+            <th>Brutto Gesamt</th>
+            <th>Netto Gesamt</th>
+            <th>Datum</th>
+            <th>Aktionen</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for offer in offers %}
+        <tr>
+            <td>{{ offer.offer_number }}</td>
+            <td>{{ offer.title }}</td>
+            <td>{{ offer.customer.name if offer.customer and offer.customer.customer_type == 'firma' else offer.customer.first_name ~ ' ' ~ offer.customer.last_name }}</td>
+            <td>{{ '%.2f'|format(offer.total_gross) }} €</td>
+            <td>{{ '%.2f'|format(offer.total_net) }} €</td>
+            <td>{{ offer.date.strftime('%d.%m.%Y') }}</td>
+            <td>
+                <a href="/offers/{{ offer.id }}/print" class="btn btn-sm btn-outline-primary" title="Drucken" target="_blank">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-printer" viewBox="0 0 16 16">
+                      <path d="M2.5 8a.5.5 0 0 0-.5.5v3A1.5 1.5 0 0 0 3.5 13h1v1.5a.5.5 0 0 0 .5.5h6a.5.5 0 0 0 .5-.5V13h1a1.5 1.5 0 0 0 1.5-1.5v-3a.5.5 0 0 0-.5-.5H2.5zm10 1v2.5a.5.5 0 0 1-.5.5h-9a.5.5 0 0 1-.5-.5V9h10z"/>
+                      <path d="M5 1a2 2 0 0 0-2 2v2h10V3a2 2 0 0 0-2-2H5zm8 4H3V3a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2z"/>
+                    </svg>
+                </a>
+                <a href="/offers/{{ offer.id }}/edit" class="btn btn-sm btn-warning ms-1" title="Bearbeiten">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-pencil" viewBox="0 0 16 16">
+                      <path d="M12.146.854a.5.5 0 0 1 .708 0l2.292 2.292a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-4 1.5a.5.5 0 0 1-.65-.65l1.5-4a.5.5 0 0 1 .11-.168l10-10zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207 11.207 2.5zm1.586 3L10.5 3.207 3 10.707V13h2.293l7.5-7.5z"/>
+                    </svg>
+                </a>
+                <a href="/offers/{{ offer.id }}/delete" class="btn btn-sm btn-danger ms-1">Löschen</a>
+                <form action="/offers/{{ offer.id }}/convert" method="post" style="display:inline;">
+                  <button type="submit" class="btn btn-sm btn-success ms-1" title="In Rechnung umwandeln" {% if offer.status not in ['angenommen', 'abgelehnt', 'abgelaufen'] %}disabled{% endif %}>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrow-left-right" viewBox="0 0 16 16">
+                      <path fill-rule="evenodd" d="M15 8a.5.5 0 0 1-.5.5H2.707l3.147 3.146a.5.5 0 0 1-.708.708l-4-4a.5.5 0 0 1 0-.708l4-4a.5.5 0 1 1 .708.708L2.707 7.5H14.5A.5.5 0 0 1 15 8z"/>
+                    </svg>
+                  </button>
+                </form>
+            </td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>PDF-Vorlage bearbeiten: {{ template.name }}</h2>
+<form method="post">
+    <div class="mb-3">
+        <label for="content" class="form-label">Vorlagen-HTML (Jinja2 möglich)</label>
+        <textarea name="content" id="content" rows="25" class="form-control" style="font-family: monospace;">{{ template.content }}</textarea>
+    </div>
+    <button class="btn btn-primary mt-3">Speichern</button>
+    <a href="{{ url_for('templates') }}" class="btn btn-secondary mt-3">Abbrechen</a>
+</form>
+{% endblock %}

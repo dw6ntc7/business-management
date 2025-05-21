@@ -1,0 +1,92 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>{% if offer %}Angebot bearbeiten{% else %}Angebot erstellen{% endif %}</h2>
+<form method="post">
+    <div class="mb-3">
+        <label for="customer_id" class="form-label">Kunde</label>
+        <select class="form-select" id="customer_id" name="customer_id" required>
+            <option value="">Bitte wählen</option>
+            {% for customer in customers %}
+                <option value="{{ customer.id }}" {% if offer and offer.customer_id == customer.id %}selected{% endif %}>
+                    {% if customer.customer_type == 'firma' %}{{ customer.name }}{% else %}{{ customer.first_name }} {{ customer.last_name }}{% endif %}
+                </option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="mb-3">
+        <label for="title" class="form-label">Angebotstitel</label>
+        <input type="text" class="form-control" id="title" name="title" required value="{{ offer.title if offer else '' }}">
+    </div>
+    <div class="row">
+        <div class="col-md-4 mb-3">
+            <label for="date" class="form-label">Angebotsdatum</label>
+            <input type="date" class="form-control" id="date" name="date" required value="{{ today }}">
+        </div>
+        <div class="col-md-4 mb-3">
+            <label for="valid_until" class="form-label">Gültig bis</label>
+            <input type="date" class="form-control" id="valid_until" name="valid_until" value="{{ offer.valid_until.isoformat() if offer and offer.valid_until else '' }}">
+        </div>
+        <div class="col-md-4 mb-3">
+            <label for="status" class="form-label">Status</label>
+            <select class="form-select" id="status" name="status">
+                <option value="offen" {% if offer and offer.status == 'offen' %}selected{% endif %}>Offen</option>
+                <option value="angenommen" {% if offer and offer.status == 'angenommen' %}selected{% endif %}>Angenommen</option>
+                <option value="abgelehnt" {% if offer and offer.status == 'abgelehnt' %}selected{% endif %}>Abgelehnt</option>
+                <option value="abgelaufen" {% if offer and offer.status == 'abgelaufen' %}selected{% endif %}>Abgelaufen</option>
+            </select>
+        </div>
+    </div>
+    <div class="mb-3">
+        <label for="notes" class="form-label">Interne Notizen</label>
+        <textarea class="form-control" id="notes" name="notes">{{ offer.notes if offer else '' }}</textarea>
+    </div>
+    <hr>
+    <h5>Positionen</h5>
+    <div id="positions">
+        {% if offer and offer.positions %}
+            {% for pos in offer.positions %}
+            <div class="card mb-2 p-2 position-row">
+                <div class="row">
+                    <div class="col-md-4 mb-2">
+                        <input type="text" class="form-control" name="positions[{{ loop.index0 }}][name]" placeholder="Positionsname" required value="{{ pos.name }}">
+                    </div>
+                    <div class="col-md-2 mb-2">
+                        <input type="number" class="form-control" name="positions[{{ loop.index0 }}][quantity]" placeholder="Menge" value="{{ pos.quantity }}" min="1" step="1" required oninput="updateTotals()">
+                    </div>
+                    <div class="col-md-2 mb-2">
+                        <input type="number" class="form-control gross-input" name="positions[{{ loop.index0 }}][gross]" placeholder="Brutto" step="0.01" required value="{{ '%.2f'|format(pos.gross) }}" oninput="updateTotals()">
+                    </div>
+                    <div class="col-md-2 mb-2">
+                        <input type="number" class="form-control vat-input" name="positions[{{ loop.index0 }}][vat]" placeholder="MwSt" value="{{ '%.2f'|format(pos.vat) }}" step="0.01" required oninput="updateTotals()">
+                    </div>
+                    <div class="col-md-2 mb-2">
+                        <input type="number" class="form-control net-input" name="positions[{{ loop.index0 }}][net]" placeholder="Netto" step="0.01" readonly value="{{ '%.2f'|format(pos.net) }}">
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        {% endif %}
+    </div>
+    <input type="hidden" id="initialPositionCount" value="{% if offer and offer.positions %}{{ offer.positions|length }}{% else %}0{% endif %}">
+    <div id="catalog-positions-data" style="display:none">{{ catalog_positions|tojson|safe }}</div>
+    <button type="button" class="btn btn-secondary mb-3" onclick="addPositionFromCatalog()">Position hinzufügen</button>
+    <div class="mb-3">
+        <label for="total_gross" class="form-label">Gesamt Brutto</label>
+        <input type="number" step="0.01" class="form-control" id="total_gross" name="total_gross" readonly value="{{ '%.2f'|format(offer.total_gross) if offer else '' }}">
+    </div>
+    <div class="mb-3">
+        <label for="total_net" class="form-label">Gesamt Netto</label>
+        <input type="number" step="0.01" class="form-control" id="total_net" name="total_net" readonly value="{{ '%.2f'|format(offer.total_net) if offer else '' }}">
+    </div>
+    <button type="submit" class="btn btn-success">Speichern</button>
+    <a href="/offers" class="btn btn-secondary">Abbrechen</a>
+</form>
+<script src="{{ url_for('static', filename='form_shared.js') }}"></script>
+<script>
+let positionIndex = { value: parseInt(document.getElementById('initialPositionCount').value) };
+const catalogPositions = JSON.parse(document.getElementById('catalog-positions-data').textContent);
+function addPositionFromCatalog() {
+    addPositionShared(positionIndex, 'positions', catalogPositions);
+}
+</script>
+{% endblock %}

@@ -1,0 +1,83 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Firmendaten bearbeiten</h2>
+<form method="post" enctype="multipart/form-data">
+    <div class="row">
+        <div class="col-md-6 mb-3">
+            <label for="name" class="form-label">Firmenname</label>
+            <input type="text" class="form-control" id="name" name="name" value="{{ settings.name or '' }}" required>
+        </div>
+        <div class="col-md-3 mb-3">
+            <label for="uid" class="form-label">UID-Nummer</label>
+            <input type="text" class="form-control" id="uid" name="uid" value="{{ settings.uid or '' }}">
+        </div>
+        <div class="col-md-3 mb-3">
+            <label for="firmenbuchnummer" class="form-label">Firmenbuchnummer</label>
+            <input type="text" class="form-control" id="firmenbuchnummer" name="firmenbuchnummer" value="{{ settings.firmenbuchnummer or '' }}">
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-md-4 mb-3">
+            <label for="street" class="form-label">Straße</label>
+            <input type="text" class="form-control" id="street" name="street" value="{{ settings.street or '' }}">
+        </div>
+        <div class="col-md-2 mb-3">
+            <label for="house_number" class="form-label">Hausnummer</label>
+            <input type="text" class="form-control" id="house_number" name="house_number" value="{{ settings.house_number or '' }}">
+        </div>
+        <div class="col-md-2 mb-3">
+            <label for="postal_code" class="form-label">PLZ</label>
+            <input type="text" class="form-control" id="postal_code" name="postal_code" value="{{ settings.postal_code or '' }}">
+        </div>
+        <div class="col-md-2 mb-3">
+            <label for="city" class="form-label">Ort</label>
+            <input type="text" class="form-control" id="city" name="city" value="{{ settings.city or '' }}">
+        </div>
+        <div class="col-md-2 mb-3">
+            <label for="country" class="form-label">Land</label>
+            <input type="text" class="form-control" id="country" name="country" value="{{ settings.country or '' }}">
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-md-4 mb-3">
+            <label for="bank" class="form-label">Bank</label>
+            <input type="text" class="form-control" id="bank" name="bank" value="{{ settings.bank or '' }}">
+        </div>
+        <div class="col-md-4 mb-3">
+            <label for="iban" class="form-label">IBAN</label>
+            <input type="text" class="form-control" id="iban" name="iban" value="{{ settings.iban or '' }}">
+        </div>
+        <div class="col-md-4 mb-3">
+            <label for="bic" class="form-label">BIC</label>
+            <input type="text" class="form-control" id="bic" name="bic" value="{{ settings.bic or '' }}">
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-md-4 mb-3">
+            <label for="email" class="form-label">E-Mail</label>
+            <input type="email" class="form-control" id="email" name="email" value="{{ settings.email or '' }}">
+        </div>
+        <div class="col-md-4 mb-3">
+            <label for="phone" class="form-label">Telefon</label>
+            <input type="text" class="form-control" id="phone" name="phone" value="{{ settings.phone or '' }}">
+        </div>
+        <div class="col-md-4 mb-3">
+            <label for="website" class="form-label">Website</label>
+            <input type="text" class="form-control" id="website" name="website" value="{{ settings.website or '' }}">
+        </div>
+    </div>
+    <div class="mb-3">
+        <label for="wirtschaftskammer" class="form-label">Wirtschaftskammer</label>
+        <input type="text" class="form-control" id="wirtschaftskammer" name="wirtschaftskammer" value="{{ settings.wirtschaftskammer or '' }}">
+    </div>
+    <div class="mb-3">
+        <label for="logo" class="form-label">Firmenlogo {% if settings.logo_filename %}<br><img src="/instance/{{ settings.logo_filename }}" alt="Logo" style="max-height:60px;"/>{% endif %}</label>
+        <input type="file" class="form-control" id="logo" name="logo" accept="image/*">
+    </div>
+    <div class="mb-3">
+        <label for="notes" class="form-label">Interne Notizen</label>
+        <textarea class="form-control" id="notes" name="notes">{{ settings.notes or '' }}</textarea>
+    </div>
+    <button type="submit" class="btn btn-success">Speichern</button>
+</form>
+{% endblock %}

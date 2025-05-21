@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Positionen / Leistungen</h2>
+<a href="/positions/new" class="btn btn-primary mb-3">Neue Position anlegen</a>
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Beschreibung</th>
+            <th>Einheit</th>
+            <th>Preis</th>
+            <th>MwSt (%)</th>
+            <th>Aktionen</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for pos in positions %}
+        <tr>
+            <td>{{ pos.name }}</td>
+            <td>{{ pos.description }}</td>
+            <td>{{ pos.unit }}</td>
+            <td>{{ '%.2f'|format(pos.price) }} €</td>
+            <td>{{ '%.2f'|format(pos.vat) }}</td>
+            <td>
+                <a href="/positions/{{ pos.id }}/edit" class="btn btn-sm btn-warning">Bearbeiten</a>
+                <a href="/positions/{{ pos.id }}/delete" class="btn btn-sm btn-danger" onclick="return confirm('Position wirklich löschen?');">Löschen</a>
+            </td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

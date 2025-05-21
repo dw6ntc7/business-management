@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Projekte</h2>
+<a href="/projects/new" class="btn btn-primary mb-3">Neues Projekt anlegen</a>
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Datum</th>
+            <th>Kunde</th>
+            <th>Kategorien</th>
+            <th>Angebote</th>
+            <th>Rechnungen</th>
+            <th>Aktionen</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for project in projects %}
+        <tr>
+            <td><a href="/projects/{{ project.id }}">{{ project.name }}</a></td>
+            <td>{{ project.date.strftime('%d.%m.%Y') }}</td>
+            <td>{% if project.customer %}{{ project.customer.name or (project.customer.first_name ~ ' ' ~ project.customer.last_name) }}{% endif %}</td>
+            <td>
+                {% for cat in project.categories.split(',') %}
+                  {% if cat.strip() == 'Foto' %}
+                    <span class="badge bg-primary">📷 Foto</span>
+                  {% elif cat.strip() == 'Video' %}
+                    <span class="badge bg-success">🎬 Video</span>
+                  {% elif cat.strip() == 'Branding' %}
+                    <span class="badge bg-warning text-dark">🏷️ Branding</span>
+                  {% elif cat.strip() == 'Dokumente' %}
+                    <span class="badge bg-info text-dark">📄 Dokumente</span>
+                  {% else %}
+                    <span class="badge bg-secondary">{{ cat }}</span>
+                  {% endif %}
+                {% endfor %}
+            </td>
+            <td>{{ project.offers|length }}</td>
+            <td>{{ project.invoices|length }}</td>
+            <td>
+                <a href="/projects/{{ project.id }}/edit" class="btn btn-sm btn-warning">Bearbeiten</a>
+                <a href="/projects/{{ project.id }}/delete" class="btn btn-sm btn-danger">Löschen</a>
+            </td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

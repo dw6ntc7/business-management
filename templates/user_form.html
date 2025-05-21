@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>{% if user %}Benutzer bearbeiten{% else %}Neuen Benutzer anlegen{% endif %}</h2>
+<form method="post">
+    <div class="mb-3">
+        <label for="username" class="form-label">Benutzername</label>
+        <input type="text" class="form-control" id="username" name="username" required value="{{ user.username if user else '' }}" {% if user %}readonly{% endif %}>
+    </div>
+    <div class="mb-3">
+        <label for="password" class="form-label">Passwort {% if user %}<small>(leer lassen für keine Änderung)</small>{% endif %}</label>
+        <input type="password" class="form-control" id="password" name="password" {% if not user %}required{% endif %}>
+    </div>
+    <div class="mb-3">
+        <label for="role" class="form-label">Rolle</label>
+        <select class="form-select" id="role" name="role">
+            <option value="user" {% if user and user.role == 'user' %}selected{% endif %}>User</option>
+            <option value="admin" {% if user and user.role == 'admin' %}selected{% endif %}>Admin</option>
+        </select>
+    </div>
+    <button type="submit" class="btn btn-success">Speichern</button>
+    <a href="{{ url_for('users') }}" class="btn btn-secondary">Abbrechen</a>
+</form>
+{% endblock %}

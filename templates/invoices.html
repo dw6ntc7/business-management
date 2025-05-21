@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Rechnungen</h2>
+<a href="/invoices/new" class="btn btn-primary mb-3">Neue Rechnung erstellen</a>
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Nummer</th>
+            <th>Titel</th>
+            <th>Kunde</th>
+            <th>Brutto Gesamt</th>
+            <th>Netto Gesamt</th>
+            <th>Datum</th>
+            <th>Aktionen</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for invoice in invoices %}
+        <tr>
+            <td>{{ invoice.invoice_number }}</td>
+            <td>{{ invoice.title }}</td>
+            <td>{{ invoice.customer.name if invoice.customer and invoice.customer.customer_type == 'firma' else invoice.customer.first_name ~ ' ' ~ invoice.customer.last_name }}</td>
+            <td>{{ '%.2f'|format(invoice.total_gross) }} €</td>
+            <td>{{ '%.2f'|format(invoice.total_net) }} €</td>
+            <td>{{ invoice.date.strftime('%d.%m.%Y') }}</td>
+            <td>
+                <a href="/invoices/{{ invoice.id }}/print" class="btn btn-sm btn-outline-primary" title="Drucken" target="_blank">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-printer" viewBox="0 0 16 16">
+                      <path d="M2.5 8a.5.5 0 0 0-.5.5v3A1.5 1.5 0 0 0 3.5 13h1v1.5a.5.5 0 0 0 .5.5h6a.5.5 0 0 0 .5-.5V13h1a1.5 1.5 0 0 0 1.5-1.5v-3a.5.5 0 0 0-.5-.5H2.5zm10 1v2.5a.5.5 0 0 1-.5.5h-9a.5.5 0 0 1-.5-.5V9h10z"/>
+                      <path d="M5 1a2 2 0 0 0-2 2v2h10V3a2 2 0 0 0-2-2H5zm8 4H3V3a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2z"/>
+                    </svg>
+                </a>
+                <a href="/invoices/{{ invoice.id }}/edit" class="btn btn-sm btn-warning ms-1" title="Bearbeiten">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-pencil" viewBox="0 0 16 16">
+                      <path d="M12.146.854a.5.5 0 0 1 .708 0l2.292 2.292a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-4 1.5a.5.5 0 0 1-.65-.65l1.5-4a.5.5 0 0 1 .11-.168l10-10zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207 11.207 2.5zm1.586 3L10.5 3.207 3 10.707V13h2.293l7.5-7.5z"/>
+                    </svg>
+                </a>
+                <a href="/invoices/{{ invoice.id }}/delete" class="btn btn-sm btn-danger ms-1">Löschen</a>
+            </td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

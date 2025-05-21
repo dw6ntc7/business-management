@@ -1,0 +1,113 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Kunde anlegen / bearbeiten</h2>
+<form method="post">
+    <div class="mb-3">
+        <label for="customer_type" class="form-label">Kundentyp</label>
+        <select class="form-select" id="customer_type" name="customer_type" onchange="toggleCustomerTypeFields()">
+            <option value="firma" {% if customer and customer.customer_type == 'firma' %}selected{% endif %}>Firmenkunde</option>
+            <option value="privat" {% if customer and customer.customer_type == 'privat' %}selected{% endif %}>Privatkunde</option>
+        </select>
+    </div>
+    <div id="firma-fields" style="display: none;">
+        <div class="mb-3">
+            <label for="name" class="form-label">Firmenname</label>
+            <input type="text" class="form-control" id="name" name="name" value="{{ customer.name if customer else '' }}">
+        </div>
+        <hr>
+        <h5>Ansprechpartner</h5>
+        <div class="mb-3">
+            <label for="contact_person" class="form-label">Name Ansprechpartner</label>
+            <input type="text" class="form-control" id="contact_person" name="contact_person" value="{{ customer.contact_person if customer else '' }}">
+        </div>
+        <div class="mb-3">
+            <label for="contact_phone" class="form-label">Telefon Ansprechpartner</label>
+            <input type="text" class="form-control" id="contact_phone" name="contact_phone" value="{{ customer.contact_phone if customer else '' }}">
+        </div>
+        <div class="mb-3">
+            <label for="contact_email" class="form-label">E-Mail Ansprechpartner</label>
+            <input type="email" class="form-control" id="contact_email" name="contact_email" value="{{ customer.contact_email if customer else '' }}">
+        </div>
+    </div>
+    <div id="privat-fields" style="display: none;">
+        <div class="mb-3">
+            <label for="first_name" class="form-label">Vorname</label>
+            <input type="text" class="form-control" id="first_name" name="first_name" value="{{ customer.first_name if customer else '' }}">
+        </div>
+        <div class="mb-3">
+            <label for="last_name" class="form-label">Nachname</label>
+            <input type="text" class="form-control" id="last_name" name="last_name" value="{{ customer.last_name if customer else '' }}">
+        </div>
+    </div>
+    <!-- Gemeinsame Felder für beide Typen -->
+    <div class="mb-3">
+        <label for="email" class="form-label">E-Mail</label>
+        <input type="email" class="form-control" id="email" name="email" value="{{ customer.email if customer else '' }}">
+    </div>
+    <div class="mb-3">
+        <label for="phone" class="form-label">Telefon</label>
+        <input type="text" class="form-control" id="phone" name="phone" value="{{ customer.phone if customer else '' }}">
+    </div>
+    <div class="row">
+        <div class="col-md-8 mb-3">
+            <label for="street" class="form-label">Straße</label>
+            <input type="text" class="form-control" id="street" name="street" value="{{ customer.street if customer else '' }}">
+        </div>
+        <div class="col-md-4 mb-3">
+            <label for="house_number" class="form-label">Hausnummer</label>
+            <input type="text" class="form-control" id="house_number" name="house_number" value="{{ customer.house_number if customer else '' }}">
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-md-4 mb-3">
+            <label for="postal_code" class="form-label">PLZ</label>
+            <input type="text" class="form-control" id="postal_code" name="postal_code" value="{{ customer.postal_code if customer else '' }}">
+        </div>
+        <div class="col-md-5 mb-3">
+            <label for="city" class="form-label">Ort</label>
+            <input type="text" class="form-control" id="city" name="city" value="{{ customer.city if customer else '' }}">
+        </div>
+        <div class="col-md-3 mb-3">
+            <label for="country" class="form-label">Land</label>
+            <input type="text" class="form-control" id="country" name="country" value="{{ customer.country if customer else '' }}">
+        </div>
+    </div>
+    <div class="mb-3">
+        <label for="notes" class="form-label">Notizen</label>
+        <textarea class="form-control" id="notes" name="notes">{{ customer.notes if customer else '' }}</textarea>
+    </div>
+    <button type="submit" class="btn btn-success">Speichern</button>
+    <a href="/customers" class="btn btn-secondary">Abbrechen</a>
+</form>
+<script>
+function toggleCustomerTypeFields() {
+    var type = document.getElementById('customer_type').value;
+    var firmaFields = document.getElementById('firma-fields');
+    var privatFields = document.getElementById('privat-fields');
+    var contactEmail = document.getElementById('contact_email');
+    var firstName = document.getElementById('first_name');
+    var lastName = document.getElementById('last_name');
+    if (type === 'firma') {
+        firmaFields.style.display = 'block';
+        privatFields.style.display = 'none';
+        // Firmenfelder aktivieren
+        contactEmail.disabled = false;
+        // Privatfelder deaktivieren
+        firstName.disabled = true;
+        lastName.disabled = true;
+    } else {
+        firmaFields.style.display = 'none';
+        privatFields.style.display = 'block';
+        // Firmenfelder deaktivieren
+        contactEmail.disabled = true;
+        // Privatfelder aktivieren
+        firstName.disabled = false;
+        lastName.disabled = false;
+    }
+}
+document.addEventListener('DOMContentLoaded', function() {
+    toggleCustomerTypeFields();
+    document.getElementById('customer_type').addEventListener('change', toggleCustomerTypeFields);
+});
+</script>
+{% endblock %}

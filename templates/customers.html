@@ -1,0 +1,34 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Kunden</h2>
+<a href="/customers/new" class="btn btn-primary mb-3">Neuen Kunden anlegen</a>
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Typ</th>
+            <th>Name/Firma</th>
+            <th>Ansprechpartner / Vorname Nachname</th>
+            <th>Email</th>
+            <th>Telefon</th>
+            <th>Adresse</th>
+            <th>Aktionen</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for customer in customers %}
+        <tr>
+            <td>{{ 'Firmenkunde' if customer.customer_type == 'firma' else 'Privatkunde' }}</td>
+            <td>{% if customer.customer_type == 'firma' %}{{ customer.name }}{% else %}{{ customer.first_name }} {{ customer.last_name }}{% endif %}</td>
+            <td>{% if customer.customer_type == 'firma' %}{{ customer.contact_person }}{% else %}{{ customer.first_name }} {{ customer.last_name }}{% endif %}</td>
+            <td>{{ customer.email }}</td>
+            <td>{{ customer.phone }}</td>
+            <td>{{ customer.street }} {{ customer.house_number }}, {{ customer.postal_code }} {{ customer.city }}, {{ customer.country }}</td>
+            <td>
+                <a href="/customers/{{ customer.id }}/edit" class="btn btn-sm btn-warning">Bearbeiten</a>
+                <a href="/customers/{{ customer.id }}/delete" class="btn btn-sm btn-danger">Löschen</a>
+            </td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

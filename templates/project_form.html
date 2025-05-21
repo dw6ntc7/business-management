@@ -1,0 +1,50 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>{% if project %}Projekt bearbeiten{% else %}Neues Projekt anlegen{% endif %}</h2>
+<form method="post">
+    <div class="mb-3">
+        <label for="name" class="form-label">Projektname</label>
+        <input type="text" class="form-control" id="name" name="name" required value="{{ project.name if project else '' }}">
+    </div>
+    <div class="mb-3">
+        <label for="date" class="form-label">Datum</label>
+        <input type="date" class="form-control" id="date" name="date" required value="{{ project.date if project else today }}">
+    </div>
+    <div class="mb-3">
+        <label for="customer_id" class="form-label">Kunde</label>
+        <select class="form-select" id="customer_id" name="customer_id" required>
+            <option value="">Bitte wählen</option>
+            {% for customer in customers %}
+                <option value="{{ customer.id }}" {% if project and project.customer_id == customer.id %}selected{% endif %}>{{ customer.name or (customer.first_name ~ ' ' ~ customer.last_name) }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="mb-3">
+        <label class="form-label">Kategorien</label><br>
+        {% for cat in categories_list %}
+            <div class="form-check form-check-inline">
+                <input class="form-check-input" type="checkbox" name="categories" id="cat_{{ cat }}" value="{{ cat }}" {% if (selected_categories and cat in selected_categories) or (not project and cat == 'Foto') %}checked{% endif %}>
+                <label class="form-check-label" for="cat_{{ cat }}">{{ cat }}</label>
+            </div>
+        {% endfor %}
+    </div>
+    <div class="mb-3">
+        <label for="offers" class="form-label">Angebote zuordnen</label>
+        <select class="form-select" id="offers" name="offers" multiple>
+            {% for offer in offers %}
+                <option value="{{ offer.id }}" {% if selected_offers and offer.id in selected_offers %}selected{% endif %}>{{ offer.offer_number }} - {{ offer.title }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="mb-3">
+        <label for="invoices" class="form-label">Rechnungen zuordnen</label>
+        <select class="form-select" id="invoices" name="invoices" multiple>
+            {% for invoice in invoices %}
+                <option value="{{ invoice.id }}" {% if selected_invoices and invoice.id in selected_invoices %}selected{% endif %}>{{ invoice.invoice_number }} - {{ invoice.title }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <button type="submit" class="btn btn-success">Speichern</button>
+    <a href="/projects" class="btn btn-secondary">Abbrechen</a>
+</form>
+{% endblock %}
