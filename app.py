@@ -17,6 +17,30 @@ from models import CatalogPosition
 
 __all__ = ["app", "db"]
 
+def generate_number(prefix_template, last_number_str):
+    """Generiert eine neue Nummer basierend auf einem Präfix-Template und der letzten Nummer.
+    
+    Args:
+        prefix_template: Template wie "One-Offer-$id" oder "Firma-Angebot-$id"
+        last_number_str: Die letzte verwendete Nummer (z.B. "One-Offer-0042")
+    
+    Returns:
+        Die neue Nummer (z.B. "One-Offer-0043")
+    """
+    if last_number_str:
+        # Extrahiere die Nummer am Ende
+        parts = last_number_str.split('-')
+        try:
+            last_num = int(parts[-1])
+            new_num = last_num + 1
+        except (ValueError, IndexError):
+            new_num = 1
+    else:
+        new_num = 1
+    
+    # Ersetze $id durch die neue Nummer mit führenden Nullen
+    return prefix_template.replace('$id', f"{new_num:04d}")
+
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///app.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -123,6 +147,9 @@ class CompanySettings(db.Model):
     phone = db.Column(db.String(32))
     website = db.Column(db.String(128))
     notes = db.Column(db.Text)
+    # Nummernpräfixe für Angebote und Rechnungen
+    offer_number_prefix = db.Column(db.String(32), default="One-Offer-$id")
+    invoice_number_prefix = db.Column(db.String(32), default="One-Inv-$id")
 
 class Project(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -298,13 +325,13 @@ def new_offer():
     catalog_positions = CatalogPosition.query.all()
     customers = Customer.query.all()
     if request.method == 'POST':
-        # Angebotsnummer generieren
+        # Angebotsnummer generieren basierend auf Firmeneinstellungen
+        company_settings = CompanySettings.query.first()
+        offer_prefix = company_settings.offer_number_prefix if company_settings and company_settings.offer_number_prefix else "One-Offer-$id"
+        
         last_offer = Offer.query.order_by(Offer.id.desc()).first()
-        if last_offer and last_offer.offer_number:
-            last_num = int(last_offer.offer_number.split('-')[-1])
-            offer_number = f"One-Offer-{last_num+1:04d}"
-        else:
-            offer_number = "One-Offer-0001"
+        last_number_str = last_offer.offer_number if last_offer else None
+        offer_number = generate_number(offer_prefix, last_number_str)
         title = request.form['title']
         customer_id = request.form['customer_id']
         offer_date = datetime.strptime(request.form['date'], "%Y-%m-%d").date()
@@ -384,12 +411,13 @@ def new_invoice():
     catalog_positions = CatalogPosition.query.all()
     customers = Customer.query.all()
     if request.method == 'POST':
+        # Rechnungsnummer generieren basierend auf Firmeneinstellungen
+        company_settings = CompanySettings.query.first()
+        invoice_prefix = company_settings.invoice_number_prefix if company_settings and company_settings.invoice_number_prefix else "One-Inv-$id"
+        
         last_invoice = Invoice.query.order_by(Invoice.id.desc()).first()
-        if last_invoice and last_invoice.invoice_number:
-            last_num = int(last_invoice.invoice_number.split('-')[-1])
-            invoice_number = f"One-Inv-{last_num+1:04d}"
-        else:
-            invoice_number = "One-Inv-0001"
+        last_number_str = last_invoice.invoice_number if last_invoice else None
+        invoice_number = generate_number(invoice_prefix, last_number_str)
         title = request.form['title']
         customer_id = request.form['customer_id']
         invoice_date = datetime.strptime(request.form['date'], "%Y-%m-%d").date()
@@ -541,6 +569,8 @@ def company_settings():
         settings.phone = request.form['phone']
         settings.website = request.form['website']
         settings.notes = request.form['notes']
+        settings.offer_number_prefix = request.form.get('offer_number_prefix', 'One-Offer-$id')
+        settings.invoice_number_prefix = request.form.get('invoice_number_prefix', 'One-Inv-$id')
         if 'logo' in request.files and request.files['logo'].filename:
             logo = request.files['logo']
             filename = secure_filename(logo.filename)
@@ -840,7 +870,8 @@ PROTECTED_ROUTES = [
     'offers', 'new_offer', 'edit_offer', 'print_offer',
     'invoices', 'new_invoice', 'edit_invoice', 'print_invoice', 'delete_invoice',
     'company_settings', 'projects', 'project_detail', 'new_project', 'edit_project', 'delete_project',
-    'project_datenschutz', 'project_datenschutz_pdf'
+    'project_datenschutz', 'project_datenschutz_pdf',
+    'positions', 'new_position', 'edit_position', 'delete_position'
 ]
 for route in PROTECTED_ROUTES:
     view_func = app.view_functions.get(route)
@@ -978,13 +1009,13 @@ def convert_offer_to_invoice(offer_id):
     if existing_invoice:
         flash('Für dieses Angebot existiert bereits eine Rechnung.', 'warning')
         return redirect(url_for('offers'))
-    # Rechnungsnummer generieren
+    # Rechnungsnummer generieren basierend auf Firmeneinstellungen
+    company_settings = CompanySettings.query.first()
+    invoice_prefix = company_settings.invoice_number_prefix if company_settings and company_settings.invoice_number_prefix else "One-Inv-$id"
+    
     last_invoice = Invoice.query.order_by(Invoice.id.desc()).first()
-    if last_invoice and last_invoice.invoice_number:
-        last_num = int(last_invoice.invoice_number.split('-')[-1])
-        invoice_number = f"One-Inv-{last_num+1:04d}"
-    else:
-        invoice_number = "One-Inv-0001"
+    last_number_str = last_invoice.invoice_number if last_invoice else None
+    invoice_number = generate_number(invoice_prefix, last_number_str)
     invoice = Invoice(
         invoice_number=invoice_number,
         title=offer.title,
@@ -1013,11 +1044,13 @@ def convert_offer_to_invoice(offer_id):
     return redirect(url_for('invoices'))
 
 @app.route('/positions')
+@login_required
 def positions():
     positions = CatalogPosition.query.all()
     return render_template('positions.html', positions=positions)
 
 @app.route('/positions/new', methods=['GET', 'POST'])
+@login_required
 def new_position():
     if request.method == 'POST':
         name = request.form['name']
@@ -1033,6 +1066,7 @@ def new_position():
     return render_template('position_form.html')
 
 @app.route('/positions/<int:position_id>/edit', methods=['GET', 'POST'])
+@login_required
 def edit_position(position_id):
     pos = CatalogPosition.query.get_or_404(position_id)
     if request.method == 'POST':
@@ -1047,6 +1081,7 @@ def edit_position(position_id):
     return render_template('position_form.html', position=pos)
 
 @app.route('/positions/<int:position_id>/delete')
+@login_required
 def delete_position(position_id):
     pos = CatalogPosition.query.get_or_404(position_id)
     db.session.delete(pos)

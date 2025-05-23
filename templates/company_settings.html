@@ -70,6 +70,22 @@
         <label for="wirtschaftskammer" class="form-label">Wirtschaftskammer</label>
         <input type="text" class="form-control" id="wirtschaftskammer" name="wirtschaftskammer" value="{{ settings.wirtschaftskammer or '' }}">
     </div>
+    <div class="row">
+        <div class="col-md-6 mb-3">
+            <label for="offer_number_prefix" class="form-label">Angebotsnummer-Präfix</label>
+            <input type="text" class="form-control" id="offer_number_prefix" name="offer_number_prefix" 
+                   value="{{ settings.offer_number_prefix or 'One-Offer-$id' }}" 
+                   placeholder="One-Offer-$id">
+            <div class="form-text">Verwendung: $id wird durch die laufende Nummer ersetzt</div>
+        </div>
+        <div class="col-md-6 mb-3">
+            <label for="invoice_number_prefix" class="form-label">Rechnungsnummer-Präfix</label>
+            <input type="text" class="form-control" id="invoice_number_prefix" name="invoice_number_prefix" 
+                   value="{{ settings.invoice_number_prefix or 'One-Inv-$id' }}" 
+                   placeholder="One-Inv-$id">
+            <div class="form-text">Verwendung: $id wird durch die laufende Nummer ersetzt</div>
+        </div>
+    </div>
     <div class="mb-3">
         <label for="logo" class="form-label">Firmenlogo {% if settings.logo_filename %}<br><img src="/instance/{{ settings.logo_filename }}" alt="Logo" style="max-height:60px;"/>{% endif %}</label>
         <input type="file" class="form-control" id="logo" name="logo" accept="image/*">

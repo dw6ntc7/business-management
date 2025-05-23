@@ -25,5 +25,8 @@ class CompanySettings(db.Model):
     phone = db.Column(db.String(32))
     website = db.Column(db.String(128))
     notes = db.Column(db.Text)
+    # Nummernpräfixe für Angebote und Rechnungen
+    offer_number_prefix = db.Column(db.String(32), default="One-Offer-$id")
+    invoice_number_prefix = db.Column(db.String(32), default="One-Inv-$id")
 
 # ...existing code...
