@@ -1,0 +1,288 @@
+{# PDF Template Macros - Wiederverwendbare Komponenten #}
+
+{# Company Info Card #}
+{% macro company_info_card(company) %}
+<div class="info-card">
+    {% if company.logo_filename %}
+        <div class="logo-container">
+            <img src="/instance/{{ company.logo_filename }}" alt="Logo">
+        </div>
+    {% endif %}
+    <h3 class="card-title">
+        <span>🏢</span> {{ company.name }}
+    </h3>
+    <div style="color: #718096; line-height: 1.6;">
+        <div>{{ company.street }} {{ company.house_number }}</div>
+        <div>{{ company.postal_code }} {{ company.city }}, {{ company.country }}</div>
+        <div>{{ company.email }}</div>
+        {% if company.phone %}<div>{{ company.phone }}</div>{% endif %}
+    </div>
+</div>
+{% endmacro %}
+
+{# Customer Info Card #}
+{% macro customer_info_card(customer) %}
+<div class="info-card customer-card">
+    <h3 class="card-title">
+        <span>👤</span> Kunde
+    </h3>
+    <div style="color: #718096; line-height: 1.6;">
+        {% if customer.customer_type == 'firma' %}
+            <div style="font-weight: 600;">{{ customer.name }}</div>
+            {% if customer.contact_person %}
+                <div>{{ customer.contact_person }}</div>
+            {% endif %}
+        {% else %}
+            <div style="font-weight: 600;">{{ customer.first_name }} {{ customer.last_name }}</div>
+        {% endif %}
+        <div>{{ customer.street }} {{ customer.house_number }}</div>
+        <div>{{ customer.postal_code }} {{ customer.city }}, {{ customer.country }}</div>
+        {% if customer.email %}<div>{{ customer.email }}</div>{% endif %}
+        {% if customer.phone %}<div>{{ customer.phone }}</div>{% endif %}
+    </div>
+</div>
+{% endmacro %}
+
+{# Document Header #}
+{% macro document_header(title, number, status, show_status=true) %}
+<div class="document-header">
+    <div class="document-header-content">
+        <div class="document-title-container">
+            <h1 class="document-title">{{ title }}</h1>
+            <div class="document-number">#{{ number }}</div>
+        </div>
+        {% if show_status %}
+        <div>
+            <span class="status-badge status-{{ status.lower() }}">{{ status }}</span>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endmacro %}
+
+{# Meta Information Section (Datum, Nummer etc.) #}
+{% macro meta_section(items) %}
+<div class="meta-section">
+    {% for item in items %}
+        <div class="meta-item">
+            <div class="meta-label">{{ item.label }}</div>
+            <div class="meta-value">{{ item.value }}</div>
+        </div>
+    {% endfor %}
+</div>
+{% endmacro %}
+
+{# Positions Table #}
+{% macro positions_table(positions, show_net=true) %}
+<div class="section-title">
+    <span>📋</span> Positionen
+</div>
+<table class="modern-table">
+    <thead>
+        <tr>
+            <th>Pos.</th>
+            <th>Bezeichnung</th>
+            <th>Menge</th>
+            <th>Einzelpreis (€)</th>
+            {% if show_net %}<th>Netto (€)</th>{% endif %}
+            <th>MwSt (%)</th>
+            <th>Gesamt (€)</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for pos in positions %}
+        <tr>
+            <td style="text-align: center; font-weight: 600;">{{ loop.index }}</td>
+            <td style="padding-left: 20px;">{{ pos.name }}</td>
+            <td style="text-align: center;">{{ pos.quantity }}</td>
+            <td style="text-align: center; font-weight: 600;">{{ '%.2f'|format(pos.gross) }}</td>
+            {% if show_net %}
+                <td style="text-align: center; font-weight: 600;">{{ '%.2f'|format(pos.net) }}</td>
+            {% endif %}
+            <td style="text-align: center;">{{ '%.2f'|format(pos.vat) }}</td>
+            <td style="text-align: center; font-weight: 700; color: #667eea;">{{ '%.2f'|format(pos.quantity * pos.gross) }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endmacro %}
+
+{# Summary Card #}
+{% macro summary_card(total_net, total_gross, document_type="Angebot") %}
+<div class="summary-card">
+    <div style="display: flex; justify-content: flex-end;">
+        <div class="summary-table">
+            <div style="display: flex; justify-content: space-between; padding: 8px 0; color: #718096;">
+                <span>Zwischensumme (Netto):</span>
+                <span style="font-weight: 600;">{{ '%.2f'|format(total_net) }} €</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; padding: 8px 0; color: #718096;">
+                <span>Mehrwertsteuer:</span>
+                <span style="font-weight: 600;">
+                    {% set mwst = total_gross - total_net %}
+                    {{ '%.2f'|format(mwst) }} €
+                </span>
+            </div>
+            <div class="summary-total">
+                <div style="display: flex; justify-content: space-between;">
+                    <span>GESAMT:</span>
+                    <span>{{ '%.2f'|format(total_gross) }} €</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endmacro %}
+
+{# Notes Section #}
+{% macro notes_section(notes, default_text) %}
+<div class="notes-section">
+    <h4 style="color: #2d3748; margin-bottom: 10px; font-weight: 700;">💡 Hinweis</h4>
+    <p style="margin: 0; color: #718096; line-height: 1.6;">
+        {{ default_text }}
+        {% if notes %}<br><em>{{ notes }}</em>{% endif %}
+    </p>
+</div>
+{% endmacro %}
+
+{# Signatures Section #}
+{% macro signatures_section(customer, company, document_type="Angebot") %}
+<div class="signatures-section">
+    <h3 style="color: #2d3748; margin-bottom: 15px; font-weight: 700; text-align: center;">✍️ Unterschriften</h3>
+    <p style="color: #718096; text-align: center; margin-bottom: 20px;">
+        {% if document_type == "Angebot" %}
+            Mit Ihrer Unterschrift bestätigen Sie die Annahme dieses Angebots
+        {% else %}
+            Unterschriften zur Bestätigung
+        {% endif %}
+    </p>
+    <div class="signatures-grid">
+        <div class="signature-box">
+            <div class="signature-line"></div>
+            <div class="signature-name">
+                {% if customer.customer_type == 'firma' %}
+                    {{ customer.name }}
+                {% else %}
+                    {{ customer.first_name }} {{ customer.last_name }}
+                {% endif %}
+            </div>
+            <div class="signature-date">Datum, Unterschrift Kunde</div>
+        </div>
+        <div class="signature-box">
+            <div class="signature-line"></div>
+            <div class="signature-name">{{ company.name }}</div>
+            <div class="signature-date">Datum, Unterschrift Anbieter</div>
+        </div>
+    </div>
+</div>
+{% endmacro %}
+
+{# QR Code Section #}
+{% macro qr_code_section(qr_data, title, description) %}
+{% set qr_id = 'qr-code-' + range(100000, 999999) | random | string %}
+<div class="qr-code-section" style="text-align: center; margin: 20px 0;">
+    <h4 style="color: #2d3748; margin-bottom: 15px; font-weight: 700;">{{ title }}</h4>
+    <div class="qr-code-container" id="{{ qr_id }}" style="width: 120px; height: 120px; border: 1px solid #e2e8f0; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; background: white; margin: 0 auto;">
+        <div style="color: #718096; font-size: 12px;">Lädt QR-Code...</div>
+    </div>
+    <p style="color: #718096; margin: 10px 0 0 0; font-size: 12px;">{{ description }}</p>
+</div>
+
+<script type="text/javascript">
+// Enhanced QR Generation with better library detection
+(function() {
+    var containerId = '{{ qr_id }}';
+    var qrData = {{ qr_data | tojson }};
+    
+    function generateQR() {
+        console.log('🔍 Attempting QR generation for:', containerId);
+        
+        // Try QRCodeManager first
+        if (window.QRCodeManager) {
+            console.log('📱 Using QRCodeManager for', containerId);
+            window.QRCodeManager.generateQR(containerId, qrData);
+            return;
+        }
+        
+        // Try direct qrcode library
+        if (typeof qrcode !== 'undefined') {
+            console.log('📱 Using direct qrcode library for', containerId);
+            directQRGeneration(containerId, qrData);
+            return;
+        }
+        
+        // Try window.qrcode
+        if (window.qrcode) {
+            console.log('📱 Using window.qrcode for', containerId);
+            directQRGeneration(containerId, qrData);
+            return;
+        }
+        
+        console.log('⏳ QR library not ready, retrying...');
+        setTimeout(generateQR, 300);
+    }
+    
+    // Start generation when DOM is ready
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(generateQR, 100);
+        });
+    } else {
+        setTimeout(generateQR, 100);
+    }
+})();
+
+function directQRGeneration(containerId, qrData) {
+    var container = document.getElementById(containerId);
+    if (!container) {
+        console.error('❌ Container not found:', containerId);
+        return;
+    }
+    
+    try {
+        var qrLib = window.qrcode || qrcode;
+        var qr = qrLib(0, 'M');
+        qr.addData(qrData);
+        qr.make();
+        
+        container.innerHTML = qr.createSvgTag({cellSize: 4, margin: 2, scalable: true});
+        
+        var svg = container.querySelector('svg');
+        if (svg) {
+            svg.style.width = '120px';
+            svg.style.height = '120px';
+            svg.style.display = 'block';
+            svg.style.margin = '0 auto';
+        }
+        
+        console.log('✅ Direct QR generated for:', containerId);
+    } catch (error) {
+        console.error('❌ Direct QR generation failed:', error);
+        container.innerHTML = '<div style="color: #dc2626; font-size: 10px; text-align: center;">QR-Code<br>Fehler</div>';
+    }
+}
+</script>
+{% endmacro %}
+
+{# Footer Section #}
+{% macro footer_section(company) %}
+<div class="footer-section">
+    {{ company.name }} • {{ company.bank }} • IBAN: {{ company.iban }} • BIC: {{ company.bic }}<br>
+    📧 {{ company.email }} • 📞 {{ company.phone }}
+    {% if company.website %} • 🌐 {{ company.website }}{% endif %}
+</div>
+{% endmacro %}
+
+{# Action Buttons für Screen View #}
+{% macro action_buttons(document_number, document_type="offer") %}
+<div class="d-flex justify-content-between align-items-center mb-4 no-print" style="margin-bottom: 30px;">
+    <h1 style="color: white; font-weight: 800; margin: 0; font-size: 2rem;">
+        {{ "Angebot" if document_type == "offer" else "Rechnung" }} #{{ document_number }}
+    </h1>
+    <div class="action-buttons">
+        <button onclick="DownloadPdf()" class="download-btn">
+            <span>🖨️</span> Drucken
+        </button>
+    </div>
+</div>
+{% endmacro %}

@@ -1,0 +1,950 @@
+{% extends 'base.html' %}
+{% block content %}
+<style>
+:root {
+   --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+   --accent-gradient: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+   --success-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+   --dark-bg: #1a1d29;
+   --light-bg: #f8fafc;
+   --text-primary: #2d3748;
+   --text-secondary: #718096;
+   --border-color: #e2e8f0;
+   --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+   --shadow-xl: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+/* Moderne Bildschirm-Stile */
+@media screen {
+   body {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      min-height: 100vh;
+      margin: 0;
+      padding: 20px;
+   }
+
+   .offer-container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 0;
+   }
+
+   .offer-card {
+      background: white;
+      border-radius: 20px;
+      box-shadow: var(--shadow-xl);
+      overflow: hidden;
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+   }
+
+   .offer-header {
+      background: var(--dark-bg);
+      color: white;
+      padding: 30px;
+      position: relative;
+      overflow: hidden;
+      border-radius: 20px;
+      margin-bottom: 30px;
+   }
+
+   .offer-header::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 100%;
+      height: 100%;
+      background: var(--primary-gradient);
+      opacity: 0.9;
+      z-index: -1;
+   }
+
+   .offer-header-content {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: relative;
+      z-index: 2;
+   }
+
+   .offer-title {
+      font-size: 2.5rem;
+      font-weight: 800;
+      margin: 0;
+      letter-spacing: -0.02em;
+   }
+
+   .offer-number {
+      background: rgba(255, 255, 255, 0.2);
+      padding: 8px 16px;
+      border-radius: 12px;
+      font-weight: 700;
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+   }
+
+   .status-badge {
+      padding: 8px 20px;
+      border-radius: 50px;
+      font-size: 14px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+   }
+
+   .status-offen {
+      background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+      color: #8b5cf6;
+   }
+
+   .status-angenommen {
+      background: var(--success-gradient);
+      color: white;
+   }
+
+   .status-abgelehnt {
+      background: var(--accent-gradient);
+      color: white;
+   }
+
+   .download-btn {
+      background: var(--success-gradient);
+      color: white;
+      border: none;
+      padding: 15px 30px;
+      border-radius: 15px;
+      cursor: pointer;
+      font-weight: 700;
+      font-size: 16px;
+      transition: all 0.3s ease;
+      box-shadow: 0 10px 25px rgba(79, 172, 254, 0.3);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+      margin-left: 10px;
+   }
+
+   .download-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 15px 35px rgba(79, 172, 254, 0.4);
+      color: white;
+      text-decoration: none;
+   }
+
+   .action-buttons {
+      display: flex;
+      gap: 10px;
+   }
+
+   .content-section {
+      padding: 40px;
+   }
+
+   .company-customer-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 30px;
+      margin-bottom: 30px;
+   }
+
+   .info-card {
+      background: var(--light-bg);
+      padding: 25px;
+      border-radius: 16px;
+      border: 1px solid var(--border-color);
+      position: relative;
+      overflow: hidden;
+   }
+
+   .info-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 4px;
+      height: 100%;
+      background: var(--primary-gradient);
+   }
+
+   .info-card.customer-card::before {
+      background: var(--accent-gradient);
+   }
+
+   .card-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 15px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+   }
+
+   .logo-container {
+      width: 60px;
+      height: 60px;
+      border-radius: 12px;
+      overflow: hidden;
+      margin-bottom: 15px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+   }
+
+   .logo-container img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+   }
+
+   .meta-section {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 25px;
+      border-radius: 16px;
+      margin: 30px 0;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 30px;
+      box-shadow: 0 10px 25px rgba(102, 126, 234, 0.3);
+   }
+
+   .meta-item {
+      text-align: center;
+   }
+
+   .meta-label {
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      opacity: 0.8;
+      margin-bottom: 8px;
+      font-weight: 600;
+   }
+
+   .meta-value {
+      font-size: 24px;
+      font-weight: 800;
+      margin: 0;
+   }
+
+   .section-title {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin: 30px 0 20px 0;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+   }
+
+   .modern-table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+      margin: 20px 0;
+   }
+
+   .modern-table thead {
+      background: var(--dark-bg);
+      color: white;
+   }
+
+   .modern-table th {
+      padding: 20px 15px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-size: 12px;
+   }
+
+   .modern-table td {
+      padding: 18px 15px;
+      border-bottom: 1px solid var(--border-color);
+      background: white;
+   }
+
+   .modern-table tbody tr:hover {
+      background: var(--light-bg);
+      transition: all 0.2s ease;
+   }
+
+   .summary-card {
+      background: var(--light-bg);
+      padding: 30px;
+      border-radius: 16px;
+      margin: 30px 0;
+      border: 1px solid var(--border-color);
+   }
+
+   .summary-table {
+      width: 100%;
+      max-width: 400px;
+      margin-left: auto;
+   }
+
+   .summary-table tr {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border-color);
+   }
+
+   .summary-table tr:last-child {
+      border-bottom: none;
+      background: var(--primary-gradient);
+      color: white;
+      padding: 20px;
+      border-radius: 12px;
+      margin-top: 15px;
+      font-weight: 800;
+      font-size: 1.25rem;
+   }
+
+   .notes-section {
+      background: var(--light-bg);
+      padding: 25px;
+      border-radius: 16px;
+      border-left: 4px solid;
+      border-image: var(--accent-gradient) 1;
+      margin: 30px 0;
+   }
+
+   .signatures-section {
+      background: white;
+      border: 2px solid transparent;
+      background-image: linear-gradient(white, white), var(--success-gradient);
+      background-origin: border-box;
+      background-clip: content-box, border-box;
+      padding: 30px;
+      border-radius: 20px;
+      margin: 30px 0;
+      box-shadow: 0 10px 25px rgba(79, 172, 254, 0.1);
+   }
+
+   .signatures-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 30px;
+      margin-top: 20px;
+   }
+
+   .signature-box {
+      text-align: center;
+      padding: 20px;
+      background: var(--light-bg);
+      border-radius: 12px;
+      border: 1px solid var(--border-color);
+   }
+
+   .signature-line {
+      border-bottom: 2px solid var(--text-primary);
+      margin-bottom: 15px;
+      padding-bottom: 60px;
+   }
+
+   .signature-name {
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 5px;
+      font-size: 14px;
+   }
+
+   .signature-date {
+      font-size: 12px;
+      color: var(--text-secondary);
+   }
+
+   .footer-section {
+      background: var(--dark-bg);
+      color: white;
+      padding: 25px;
+      text-align: center;
+      font-size: 14px;
+      border-radius: 16px;
+      margin-top: 30px;
+   }
+}
+
+/* Print-Stile - Optimiert für eine A4-Seite */
+@media print {
+   @page {
+      margin: 5mm;
+      size: A4;
+   }
+   
+   body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+      font-size: 10px;
+      line-height: 1.3;
+      color: #2d3748 !important;
+      background: white !important;
+      margin: 0;
+      padding: 0;
+   }
+   
+   .no-print {
+      display: none !important;
+   }
+   
+   nav, .navbar, .breadcrumb, header, .action-buttons {
+      display: none !important;
+   }
+   
+   .offer-container {
+      max-width: none !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      width: 100% !important;
+   }
+   
+   .offer-card {
+      box-shadow: none !important;
+      border: none !important;
+      border-radius: 0 !important;
+      overflow: visible !important;
+      width: 100% !important;
+      margin: 0 !important;
+   }
+   
+   .offer-header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+      color: white !important;
+      padding: 15px 20px !important;
+      margin-top: 20px !important;
+      margin-bottom: 15px !important;
+      border-radius: 8px !important;
+      display: flex !important;
+      justify-content: space-between !important;
+      align-items: center !important;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+   }
+   
+   .offer-header-content {
+      display: flex !important;
+      justify-content: space-between !important;
+      align-items: center !important;
+      width: 100% !important;
+   }
+   
+   .offer-title-container {
+      display: flex !important;
+      align-items: center !important;
+   }
+   
+   .offer-title {
+      font-size: 1.8rem !important;
+      font-weight: 800 !important;
+      margin: 0 !important;
+      line-height: 1 !important;
+   }
+   
+   .offer-number {
+      background: rgba(255, 255, 255, 0.3) !important;
+      padding: 8px 12px !important;
+      border-radius: 8px !important;
+      font-weight: 700 !important;
+      margin-left: 15px !important;
+      display: flex !important;
+      align-items: center !important;
+      line-height: 1 !important;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+   }
+   
+   .status-badge {
+      padding: 6px 16px !important;
+      border-radius: 20px !important;
+      font-size: 12px !important;
+      font-weight: 700 !important;
+      text-transform: uppercase !important;
+   }
+   
+   .status-offen {
+      background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%) !important;
+      color: #8b5cf6 !important;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+   }
+   
+   .status-angenommen {
+      background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%) !important;
+      color: white !important;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+   }
+   
+   .status-abgelehnt {
+      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%) !important;
+      color: white !important;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+   }
+   
+   .content-section {
+      padding: 15px 20px 60px 20px !important;
+   }
+   
+   .company-customer-grid {
+      display: grid !important;
+      grid-template-columns: 1fr 1fr !important;
+      gap: 15px !important;
+      margin-bottom: 15px !important;
+   }
+   
+   .info-card {
+      background: #f8fafc !important;
+      padding: 12px !important;
+      border-radius: 8px !important;
+      border: 1px solid #e2e8f0 !important;
+      position: relative !important;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+   }
+   
+   .info-card::before {
+      content: '' !important;
+      position: absolute !important;
+      top: 0 !important;
+      left: 0 !important;
+      width: 3px !important;
+      height: 100% !important;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+   }
+   
+   .info-card.customer-card::before {
+      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%) !important;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+   }
+   
+   .card-title {
+      font-size: 1rem !important;
+      font-weight: 700 !important;
+      color: #2d3748 !important;
+      margin-bottom: 8px !important;
+   }
+   
+   .logo-container {
+      width: 40px !important;
+      height: 40px !important;
+      border-radius: 6px !important;
+      overflow: hidden !important;
+      margin-bottom: 8px !important;
+   }
+   
+   .logo-container img {
+      width: 100% !important;
+      height: 100% !important;
+      object-fit: cover !important;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+   }
+   
+   .meta-section {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+      color: white !important;
+      padding: 12px !important;
+      border-radius: 8px !important;
+      margin: 15px 0 !important;
+      display: grid !important;
+      grid-template-columns: 1fr 1fr !important;
+      gap: 15px !important;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+   }
+   
+   .meta-item {
+      text-align: center !important;
+   }
+   
+   .meta-label {
+      font-size: 10px !important;
+      text-transform: uppercase !important;
+      opacity: 0.9 !important;
+      margin-bottom: 4px !important;
+      font-weight: 600 !important;
+   }
+   
+   .meta-value {
+      font-size: 16px !important;
+      font-weight: 800 !important;
+      margin: 0 !important;
+   }
+   
+   .section-title {
+      font-size: 1.1rem !important;
+      font-weight: 700 !important;
+      color: #2d3748 !important;
+      margin: 15px 0 10px 0 !important;
+   }
+   
+   .modern-table {
+      width: 100% !important;
+      border-collapse: separate !important;
+      border-spacing: 0 !important;
+      border-radius: 8px !important;
+      overflow: hidden !important;
+      border: 1px solid #e2e8f0 !important;
+      margin: 10px 0 !important;
+      font-size: 9px !important;
+   }
+   
+   .modern-table thead {
+      background: #1a1d29 !important;
+      color: white !important;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+   }
+   
+   .modern-table th {
+      padding: 8px 4px !important;
+      font-weight: 700 !important;
+      text-transform: uppercase !important;
+      font-size: 8px !important;
+      letter-spacing: 0.05em !important;
+      text-align: center !important;
+   }
+   
+   .modern-table th[style*="text-align: left"] {
+      text-align: left !important;
+   }
+   
+   .modern-table td {
+      padding: 6px 4px !important;
+      border-bottom: 1px solid #e2e8f0 !important;
+      background: white !important;
+      text-align: center !important;
+   }
+   
+   .modern-table td.text-left {
+      text-align: left !important;
+   }
+   
+   .modern-table td.text-right {
+      text-align: right !important;
+   }
+   
+   .modern-table tbody tr:nth-child(even) td {
+      background: #f8fafc !important;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+   }
+   
+   .summary-card {
+      background: #f8fafc !important;
+      padding: 15px !important;
+      border-radius: 8px !important;
+      margin: 15px 0 !important;
+      border: 1px solid #e2e8f0 !important;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+   }
+   
+   .summary-table div {
+      padding: 4px 0 !important;
+      font-size: 10px !important;
+   }
+   
+   .summary-table div:last-child {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+      color: white !important;
+      padding: 10px !important;
+      border-radius: 6px !important;
+      margin-top: 8px !important;
+      font-weight: 800 !important;
+      font-size: 14px !important;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+   }
+   
+   .notes-section {
+      background: #f8fafc !important;
+      padding: 10px !important;
+      border-radius: 6px !important;
+      border-left: 3px solid #f093fb !important;
+      margin: 10px 0 !important;
+      font-size: 9px !important;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+      page-break-inside: avoid !important;
+   }
+   
+   .notes-section h4 {
+      font-size: 10px !important;
+      margin-bottom: 5px !important;
+   }
+   
+   .signatures-section {
+      background: white !important;
+      border: 1px solid #4facfe !important;
+      padding: 15px !important;
+      border-radius: 8px !important;
+      margin: 15px 0 !important;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+      page-break-inside: avoid !important;
+   }
+   
+   .signatures-grid {
+      display: grid !important;
+      grid-template-columns: 1fr 1fr !important;
+      gap: 15px !important;
+      margin-top: 10px !important;
+   }
+   
+   .signature-box {
+      background: #f8fafc !important;
+      padding: 10px !important;
+      border-radius: 6px !important;
+      border: 1px solid #e2e8f0 !important;
+      text-align: center !important;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+   }
+   
+   .signature-line {
+      border-bottom: 1px solid #000 !important;
+      margin-bottom: 8px !important;
+      padding-bottom: 40px !important;
+   }
+   
+   .signature-name {
+      font-size: 9px !important;
+      font-weight: 700 !important;
+      margin-bottom: 3px !important;
+   }
+   
+   .signature-date {
+      font-size: 8px !important;
+      color: #718096 !important;
+   }
+   
+   .footer-section {
+      position: fixed !important;
+      bottom: 5mm !important;
+      left: 5mm !important;
+      right: 5mm !important;
+      background: #1a1d29 !important;
+      color: white !important;
+      padding: 8px 15px !important;
+      text-align: center !important;
+      font-size: 8px !important;
+      border-radius: 6px !important;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+      z-index: 1000 !important;
+   }
+}
+</style>
+
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<div class="offer-container">
+   <!-- Header mit Action Buttons -->
+   <div class="d-flex justify-content-between align-items-center mb-4 no-print" style="margin-bottom: 30px;">
+      <h1 style="color: white; font-weight: 800; margin: 0; font-size: 2rem;">Angebot #{{ offer.offer_number }}</h1>
+      <div class="action-buttons">
+         <button onclick="DownloadPdf()" class="download-btn">
+            <span>🖨️</span> Drucken
+         </button>
+      </div>
+   </div>
+
+   <div class="offer-card" id="angebot-content">
+      <!-- Moderner Header -->
+      <div class="offer-header">
+         <div class="offer-header-content">
+            <div class="offer-title-container">
+               <h1 class="offer-title">ANGEBOT</h1>
+               <div class="offer-number">#{{ offer.offer_number }}</div>
+            </div>
+            <div>
+               <span class="status-badge status-{{ offer.status.lower() }}">{{ offer.status }}</span>
+            </div>
+         </div>
+      </div>
+      
+      <!-- Content Section -->
+      <div class="content-section">
+         <!-- Company & Customer Grid -->
+         <div class="company-customer-grid">
+            <div class="info-card">
+               {% if company.logo_filename %}
+                  <div class="logo-container">
+                     <img src="/instance/{{ company.logo_filename }}" alt="Logo">
+                  </div>
+               {% endif %}
+               <h3 class="card-title">
+                  <span>🏢</span> {{ company.name }}
+               </h3>
+               <div style="color: #718096; line-height: 1.6;">
+                  <div>{{ company.street }} {{ company.house_number }}</div>
+                  <div>{{ company.postal_code }} {{ company.city }}, {{ company.country }}</div>
+                  <div>{{ company.email }}</div>
+               </div>
+            </div>
+            
+            <div class="info-card customer-card">
+               <h3 class="card-title">
+                  <span>👤</span> Kunde
+               </h3>
+               <div style="color: #718096; line-height: 1.6;">
+                  {% if offer.customer.customer_type == 'firma' %}
+                     <div style="font-weight: 600; color: #2d3748;">{{ offer.customer.name }}</div>
+                  {% else %}
+                     <div style="font-weight: 600; color: #2d3748;">{{ offer.customer.first_name }} {{ offer.customer.last_name }}</div>
+                  {% endif %}
+                  <div>{{ offer.customer.street }} {{ offer.customer.house_number }}</div>
+                  <div>{{ offer.customer.postal_code }} {{ offer.customer.city }}, {{ offer.customer.country }}</div>
+                  {% if offer.customer.email %}<div>{{ offer.customer.email }}</div>{% endif %}
+               </div>
+            </div>
+         </div>
+
+         <!-- Meta Information -->
+         <div class="meta-section">
+            <div class="meta-item">
+               <div class="meta-label">Angebotsdatum</div>
+               <div class="meta-value">{{ offer.date.strftime('%d.%m.%Y') }}</div>
+            </div>
+            <div class="meta-item">
+               <div class="meta-label">Gültig bis</div>
+               <div class="meta-value">{{ offer.valid_until.strftime('%d.%m.%Y') if offer.valid_until else '-' }}</div>
+            </div>
+         </div>
+
+         <!-- Title -->
+         <h2 class="section-title">
+            <span>📋</span> {{ offer.title }}
+         </h2>
+
+         <!-- Modern Table -->
+         <table class="modern-table">
+            <thead>
+               <tr>
+                  <th style="width: 40px">Pos.</th>
+                  <th style="width: auto; text-align: left;">Bezeichnung</th>
+                  <th style="width: 60px">Menge</th>
+                  <th style="width: 80px">Brutto (€)</th>
+                  <th style="width: 80px">Netto (€)</th>
+                  <th style="width: 60px">MwSt. (%)</th>
+                  <th style="width: 80px">Summe (€)</th>
+               </tr>
+            </thead>
+            <tbody>
+               {% for pos in offer.positions %}
+               <tr>
+                  <td style="text-align: center; font-weight: 700;">{{ loop.index }}</td>
+                  <td class="text-left" style="font-weight: 600;">{{ pos.name }}</td>
+                  <td style="text-align: center;">{{ pos.quantity }}</td>
+                  <td style="text-align: center; font-weight: 600;">{{ '%.2f'|format(pos.gross) }}</td>
+                  <td style="text-align: center; font-weight: 600;">{{ '%.2f'|format(pos.net) }}</td>
+                  <td style="text-align: center;">{{ '%.2f'|format(pos.vat) }}</td>
+                  <td style="text-align: center; font-weight: 700; color: #667eea;">{{ '%.2f'|format(pos.quantity * pos.gross) }}</td>
+               </tr>
+               {% endfor %}
+            </tbody>
+         </table>
+
+         <!-- Summary -->
+         <div class="summary-card">
+            <div style="display: flex; justify-content: flex-end;">
+               <div class="summary-table">
+                  <div style="display: flex; justify-content: space-between; padding: 8px 0; color: #718096;">
+                     <span>Zwischensumme (Netto):</span>
+                     <span style="font-weight: 600;">{{ '%.2f'|format(offer.total_net) }} €</span>
+                  </div>
+                  <div style="display: flex; justify-content: space-between; padding: 8px 0; color: #718096;">
+                     <span>Mehrwertsteuer:</span>
+                     <span style="font-weight: 600;">
+                        {% set mwst = offer.total_gross - offer.total_net %}
+                        {{ '%.2f'|format(mwst) }} €
+                     </span>
+                  </div>
+                  <div style="display: flex; justify-content: space-between; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 12px; margin-top: 15px; font-weight: 800; font-size: 1.25rem;">
+                     <span>GESAMT:</span>
+                     <span>{{ '%.2f'|format(offer.total_gross) }} €</span>
+                  </div>
+               </div>
+            </div>
+         </div>
+
+         <!-- Notes -->
+         <div class="notes-section">
+            <h4 style="color: #2d3748; margin-bottom: 10px; font-weight: 700;">💡 Hinweis</h4>
+            <p style="margin: 0; color: #718096; line-height: 1.6;">
+               Dieses Angebot ist bis zum angegebenen Datum gültig. Änderungen und Irrtümer vorbehalten.
+               {% if offer.notes %}<br><em>{{ offer.notes }}</em>{% endif %}
+            </p>
+         </div>
+
+         <!-- Signatures Section -->
+         <div class="signatures-section">
+            <h3 style="color: #2d3748; margin-bottom: 15px; font-weight: 700; text-align: center;">✍️ Unterschriften</h3>
+            <p style="color: #718096; text-align: center; margin-bottom: 20px;">
+               Mit Ihrer Unterschrift bestätigen Sie die Annahme dieses Angebots
+            </p>
+            <div class="signatures-grid">
+               <div class="signature-box">
+                  <div class="signature-line"></div>
+                  <div class="signature-name">
+                     {% if offer.customer.customer_type == 'firma' %}
+                        {{ offer.customer.name }}
+                     {% else %}
+                        {{ offer.customer.first_name }} {{ offer.customer.last_name }}
+                     {% endif %}
+                  </div>
+                  <div class="signature-date">Datum, Unterschrift Kunde</div>
+               </div>
+               <div class="signature-box">
+                  <div class="signature-line"></div>
+                  <div class="signature-name">{{ company.name }}</div>
+                  <div class="signature-date">Datum, Unterschrift Anbieter</div>
+               </div>
+            </div>
+         </div>
+
+         <!-- Footer -->
+         <div class="footer-section">
+            {{ company.name }} • {{ company.bank }} • IBAN: {{ company.iban }} • BIC: {{ company.bic }}<br>
+            📧 {{ company.email }} • 📞 {{ company.phone }}
+         </div>
+      </div>
+   </div>
+</div>
+
+<script>
+// Modern PDF Download
+function DownloadPdf() {
+   // Smooth animation before print
+   const btn = document.querySelector('.download-btn');
+   if (btn) {
+      btn.style.transform = 'scale(0.95)';
+      btn.innerHTML = '<span>⏳</span> Generiere PDF...';
+      
+      setTimeout(() => {
+         window.print();
+         btn.style.transform = 'scale(1)';
+         btn.innerHTML = '<span>🖨️</span> Drucken';
+      }, 300);
+   } else {
+      window.print();
+   }
+}
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', function() {
+   console.log('Modernes Angebot Template geladen');
+});
+</script>
+{% endblock %}

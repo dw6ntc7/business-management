@@ -1,0 +1,88 @@
+{% extends 'base.html' %}
+{% from 'pdf_macros.html' import 
+    company_info_card, 
+    customer_info_card, 
+    document_header, 
+    meta_section, 
+    positions_table, 
+    summary_card, 
+    notes_section, 
+    qr_code_section,
+    footer_section, 
+    action_buttons 
+%}
+
+{% block content %}
+<!-- QR Code Library - Load first -->
+<script src="https://unpkg.com/qrcode-generator@1.4.4/qrcode.js"></script>
+<script src="{{ url_for('static', filename='qr-manager.js') }}"></script>
+
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='pdf-styles.css') }}">
+<link rel="stylesheet" href="{{ url_for('dynamic_colors_css') }}">
+
+<div class="document-container">
+   <!-- Action Buttons (nur für Screen) -->
+   {{ action_buttons(invoice.invoice_number, "invoice") }}
+
+   <div class="document-card" id="rechnung-content">
+      <!-- Document Header -->
+      {{ document_header("RECHNUNG", invoice.invoice_number, invoice.status, false) }}
+      
+      <!-- Content Section -->
+      <div class="content-section">
+         <!-- Company & Customer Grid -->
+         <div class="company-customer-grid">
+            {{ company_info_card(company) }}
+            {{ customer_info_card(invoice.customer) }}
+         </div>
+
+         <!-- Meta Information -->
+         {{ meta_section([
+            {"label": "Rechnungsdatum", "value": invoice.date.strftime('%d.%m.%Y')},
+            {"label": "Zahlbar bis", "value": invoice.due_date.strftime('%d.%m.%Y') if invoice.due_date else '-'}
+         ]) }}
+
+         <!-- Positions Table -->
+         {{ positions_table(invoice.positions) }}
+
+         <!-- Summary -->
+         {{ summary_card(invoice.total_net, invoice.total_gross, "Rechnung") }}
+
+         <!-- QR Code für Zahlung -->
+         {% if company.iban and invoice.total_gross > 0 %}
+            {% set qr_payment_data = "BCD\n002\n1\nSCT\n" + (company.bic or '') + "\n" + company.name + "\n" + company.iban + "\nEUR" + "%.2f"|format(invoice.total_gross) + "\n\nRechnung " + invoice.invoice_number + "\n" %}
+            {{ qr_code_section(qr_payment_data, "💳 Zahlung per QR-Code", "Scannen Sie den QR-Code mit Ihrer Banking-App für eine schnelle Überweisung") }}
+         {% endif %}
+
+         <!-- Notes -->
+         {{ notes_section(invoice.notes, "Bitte begleichen Sie den Rechnungsbetrag bis zum angegebenen Datum. Bei Rückfragen stehen wir gerne zur Verfügung.") }}
+
+         <!-- Footer -->
+         {{ footer_section(company) }}
+      </div>
+   </div>
+</div>
+
+<script src="{{ url_for('static', filename='pdf-utils.js') }}"></script>
+<script>
+// Initialize document and verify libraries
+document.addEventListener('DOMContentLoaded', function() {
+   console.log('🔄 Modernes Rechnungs Template geladen');
+   
+   // Verify libraries
+   setTimeout(function() {
+       console.log('📚 Library Status:');
+       console.log('- qrcode available:', typeof qrcode !== 'undefined');
+       console.log('- pdfUtils available:', typeof window.pdfUtils !== 'undefined');
+       
+       if (typeof qrcode !== 'undefined') {
+           console.log('✅ QR-Code Bibliothek bereit');
+       } else {
+           console.error('❌ QR-Code Bibliothek nicht verfügbar');
+       }
+   }, 100);
+});
+</script>
+{% endblock %}

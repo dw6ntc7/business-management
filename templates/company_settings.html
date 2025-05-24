@@ -94,6 +94,38 @@
         <label for="notes" class="form-label">Interne Notizen</label>
         <textarea class="form-control" id="notes" name="notes">{{ settings.notes or '' }}</textarea>
     </div>
-    <button type="submit" class="btn btn-success">Speichern</button>
+    
+    <!-- PDF Template Farben -->
+    <h4 class="mt-4 mb-3">🎨 PDF Template Farben</h4>
+    <div class="row">
+        <div class="col-md-3 mb-3">
+            <label for="primary_color" class="form-label">Hauptfarbe</label>
+            <input type="color" class="form-control form-control-color" id="primary_color" name="primary_color" 
+                   value="{{ settings.primary_color or '#667eea' }}" title="Hauptfarbe für Akzente">
+            <div class="form-text">Für Buttons und wichtige Elemente</div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <label for="secondary_color" class="form-label">Sekundärfarbe</label>
+            <input type="color" class="form-control form-control-color" id="secondary_color" name="secondary_color" 
+                   value="{{ settings.secondary_color or '#764ba2' }}" title="Sekundärfarbe">
+            <div class="form-text">Für Hintergründe und Rahmen</div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <label for="accent_color" class="form-label">Akzentfarbe</label>
+            <input type="color" class="form-control form-control-color" id="accent_color" name="accent_color" 
+                   value="{{ settings.accent_color or '#4299e1' }}" title="Akzentfarbe">
+            <div class="form-text">Für Preise und Highlights</div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <label for="text_color" class="form-label">Textfarbe</label>
+            <input type="color" class="form-control form-control-color" id="text_color" name="text_color" 
+                   value="{{ settings.text_color or '#2d3748' }}" title="Haupttextfarbe">
+            <div class="form-text">Für Überschriften und Texte</div>
+        </div>
+    </div>
+    
+    <div class="mb-3">
+        <button type="submit" class="btn btn-success">Speichern</button>
+    </div>
 </form>
 {% endblock %}

@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR-Code Test für Rechnungen</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            padding: 20px; 
+            background: #f5f5f5;
+        }
+        .test-container { 
+            max-width: 800px; 
+            margin: 0 auto; 
+            background: white; 
+            padding: 20px; 
+            border-radius: 8px; 
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .qr-test-box { 
+            border: 2px solid #e2e8f0; 
+            border-radius: 8px; 
+            padding: 20px; 
+            margin: 15px 0; 
+            background: #f8f9fa;
+        }
+        .qr-container { 
+            width: 150px; 
+            height: 150px; 
+            border: 1px solid #ccc; 
+            margin: 10px auto; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            background: white;
+            border-radius: 8px;
+        }
+        .test-log { 
+            background: #2d3748; 
+            color: #a0aec0; 
+            padding: 15px; 
+            border-radius: 5px; 
+            margin: 10px 0; 
+            font-family: monospace; 
+            font-size: 12px; 
+            max-height: 300px; 
+            overflow-y: auto;
+        }
+        .btn { 
+            background: #4299e1; 
+            color: white; 
+            padding: 10px 20px; 
+            border: none; 
+            border-radius: 5px; 
+            cursor: pointer; 
+            margin: 5px; 
+        }
+        .btn:hover { background: #3182ce; }
+        .status { 
+            padding: 8px 12px; 
+            border-radius: 4px; 
+            margin: 5px 0; 
+            font-weight: bold;
+        }
+        .status.success { background: #c6f6d5; color: #22543d; }
+        .status.error { background: #fed7d7; color: #742a2a; }
+        .status.info { background: #bee3f8; color: #2a4365; }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🧪 QR-Code Test für Rechnungen</h1>
+        <p>Diese Seite testet die QR-Code-Generierung mit den gleichen Daten wie in den Rechnungs-PDFs.</p>
+        
+        <div class="status info" id="library-status">📋 Prüfe QR-Bibliothek...</div>
+        
+        <div class="qr-test-box">
+            <h3>📱 Test 1: EPC Payment QR-Code</h3>
+            <p><strong>Daten:</strong> Standard Bank-Transfer für 130.00€</p>
+            <div class="qr-container" id="qr-test-1">
+                <div style="color: #666;">Lädt QR-Code...</div>
+            </div>
+            <button class="btn" onclick="generateTestQR1()">QR neu generieren</button>
+        </div>
+        
+        <div class="qr-test-box">
+            <h3>📱 Test 2: Größerer Betrag (480.00€)</h3>
+            <p><strong>Daten:</strong> Höherer Betrag zur Validierung</p>
+            <div class="qr-container" id="qr-test-2">
+                <div style="color: #666;">Lädt QR-Code...</div>
+            </div>
+            <button class="btn" onclick="generateTestQR2()">QR neu generieren</button>
+        </div>
+        
+        <div class="qr-test-box">
+            <h3>🔧 Test 3: Direkte Bibliothek</h3>
+            <p><strong>Daten:</strong> Test ohne QRCodeManager</p>
+            <div class="qr-container" id="qr-test-3">
+                <div style="color: #666;">Lädt QR-Code...</div>
+            </div>
+            <button class="btn" onclick="generateDirectQR()">Direkt generieren</button>
+        </div>
+        
+        <h3>📊 Test-Log</h3>
+        <div class="test-log" id="test-log">Initialisierung...\n</div>
+        
+        <button class="btn" onclick="clearLog()">Log löschen</button>
+        <button class="btn" onclick="runAllTests()">Alle Tests ausführen</button>
+    </div>
+
+    <!-- QR Library -->
+    <script src="https://unpkg.com/qrcode-generator@1.4.4/qrcode.js"></script>
+    <script src="/static/qr-manager.js"></script>
+    
+    <script>
+        // Log function
+        function log(message) {
+            const logDiv = document.getElementById('test-log');
+            const timestamp = new Date().toLocaleTimeString();
+            logDiv.textContent += `[${timestamp}] ${message}\n`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+            console.log(message);
+        }
+        
+        // Clear log
+        function clearLog() {
+            document.getElementById('test-log').textContent = 'Log gelöscht...\n';
+        }
+        
+        // Test QR Data (real invoice data)
+        const testData1 = "BCD\\n002\\n1\\nSCT\\nSPRHAT21XXX\\nMZM Creative\\nAT832033300000364802\\nEUR130.00\\n\\nRechnung One-Inv-0001\\n";
+        const testData2 = "BCD\\n002\\n1\\nSCT\\nSPRHAT21XXX\\nMZM Creative\\nAT832033300000364802\\nEUR480.00\\n\\nRechnung One-Inv-0002\\n";
+        const testData3 = "BCD\\n002\\n1\\nSCT\\nSPRHAT21XXX\\nMZM Creative\\nAT832033300000364802\\nEUR240.00\\n\\nRechnung One-Inv-0003\\n";
+        
+        // Test functions
+        function generateTestQR1() {
+            log('🎯 Generiere QR-Code 1 (130€)...');
+            if (window.QRCodeManager) {
+                window.QRCodeManager.generateQR('qr-test-1', testData1);
+                log('✅ QRCodeManager verwendet');
+            } else {
+                log('❌ QRCodeManager nicht verfügbar');
+            }
+        }
+        
+        function generateTestQR2() {
+            log('🎯 Generiere QR-Code 2 (480€)...');
+            if (window.QRCodeManager) {
+                window.QRCodeManager.generateQR('qr-test-2', testData2);
+                log('✅ QRCodeManager verwendet');
+            } else {
+                log('❌ QRCodeManager nicht verfügbar');
+            }
+        }
+        
+        function generateDirectQR() {
+            log('🎯 Generiere QR-Code 3 direkt...');
+            const container = document.getElementById('qr-test-3');
+            
+            if (typeof qrcode === 'undefined') {
+                log('❌ qrcode library nicht verfügbar');
+                container.innerHTML = '<div style="color: red;">Bibliothek fehlt</div>';
+                return;
+            }
+            
+            try {
+                const qr = qrcode(0, 'M');
+                qr.addData(testData3);
+                qr.make();
+                
+                container.innerHTML = qr.createSvgTag({cellSize: 4, margin: 2, scalable: true});
+                
+                const svg = container.querySelector('svg');
+                if (svg) {
+                    svg.style.width = '150px';
+                    svg.style.height = '150px';
+                    svg.style.display = 'block';
+                }
+                
+                log('✅ Direkte QR-Generierung erfolgreich');
+            } catch (error) {
+                log('❌ Direkte QR-Generierung fehlgeschlagen: ' + error.message);
+                container.innerHTML = '<div style="color: red;">Fehler</div>';
+            }
+        }
+        
+        function runAllTests() {
+            log('🚀 Starte alle Tests...');
+            setTimeout(() => generateTestQR1(), 500);
+            setTimeout(() => generateTestQR2(), 1000);
+            setTimeout(() => generateDirectQR(), 1500);
+        }
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            log('📋 DOM geladen, prüfe Bibliotheken...');
+            
+            setTimeout(function() {
+                const statusDiv = document.getElementById('library-status');
+                
+                if (typeof qrcode !== 'undefined') {
+                    statusDiv.className = 'status success';
+                    statusDiv.textContent = '✅ QR-Code Bibliothek geladen';
+                    log('✅ qrcode library verfügbar');
+                } else {
+                    statusDiv.className = 'status error';
+                    statusDiv.textContent = '❌ QR-Code Bibliothek nicht geladen';
+                    log('❌ qrcode library nicht verfügbar');
+                }
+                
+                if (window.QRCodeManager) {
+                    log('✅ QRCodeManager verfügbar');
+                } else {
+                    log('❌ QRCodeManager nicht verfügbar');
+                }
+                
+                // Auto-run tests
+                setTimeout(() => runAllTests(), 1000);
+            }, 500);
+        });
+    </script>
+</body>
+</html>

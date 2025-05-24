@@ -150,6 +150,12 @@ class CompanySettings(db.Model):
     # Nummernpräfixe für Angebote und Rechnungen
     offer_number_prefix = db.Column(db.String(32), default="One-Offer-$id")
     invoice_number_prefix = db.Column(db.String(32), default="One-Inv-$id")
+    
+    # PDF Template Farben
+    primary_color = db.Column(db.String(7), default="#667eea")     # Hauptfarbe für Akzente
+    secondary_color = db.Column(db.String(7), default="#764ba2")   # Sekundärfarbe
+    accent_color = db.Column(db.String(7), default="#4299e1")      # Akzentfarbe für wichtige Elemente
+    text_color = db.Column(db.String(7), default="#2d3748")        # Haupttextfarbe
 
 class Project(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -177,6 +183,34 @@ class PdfTemplate(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(64), unique=True, nullable=False)  # z.B. "Angebot", "Rechnung"
     content = db.Column(db.Text, nullable=False)
+
+# Set user context for all requests and enforce authentication
+@app.before_request
+def load_user():
+    # Skip authentication for login route and static files
+    if request.endpoint and (request.endpoint == 'login' or request.endpoint.startswith('static')):
+        return
+    
+    user_id = session.get('user_id')
+    token_expiry = session.get('token_expiry')
+    
+    if user_id and token_expiry:
+        try:
+            # Check if token is still valid
+            if datetime.utcnow() <= datetime.fromisoformat(token_expiry):
+                g.user = User.query.get(user_id)
+                if g.user:
+                    return  # User is authenticated, continue
+            else:
+                # Token expired, clear session
+                session.clear()
+                flash('Session abgelaufen. Bitte erneut anmelden.', 'warning')
+        except:
+            session.clear()
+    
+    # No valid session - redirect to login
+    g.user = None
+    return redirect(url_for('login'))
 
 # Login-Required Decorator
 
@@ -209,6 +243,39 @@ def admin_required(f):
         g.user = user
         return f(*args, **kwargs)
     return decorated_function
+
+# ===== AUTHENTICATION ROUTES =====
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+        
+        user = User.query.filter_by(username=username).first()
+        if user and user.check_password(password):
+            # Set session with expiry (24 hours)
+            session['user_id'] = user.id
+            session['token_expiry'] = (datetime.utcnow() + timedelta(hours=24)).isoformat()
+            flash(f'Willkommen, {user.username}!', 'success')
+            return redirect(url_for('index'))
+        else:
+            flash('Ungültiger Benutzername oder Passwort.', 'error')
+    
+    return render_template('login.html')
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    flash('Sie wurden erfolgreich abgemeldet.', 'info')
+    return redirect(url_for('login'))
+
+# Debug Routes
+@app.route('/debug-qr')
+def debug_qr():
+    return send_from_directory('.', 'debug_qr.html')
+
+# ===== MAIN ROUTES =====
 
 @app.route('/')
 def index():
@@ -261,6 +328,11 @@ def index():
                          total_invoice_value=total_invoice_value,
                          paid_invoice_value=paid_invoice_value,
                          payment_percentage=payment_percentage)
+
+@app.route('/qr-test')
+def qr_test():
+    """Test-Route für QR-Code Funktionalität"""
+    return render_template('qr_test.html')
 
 @app.route('/customers')
 def customers():
@@ -466,6 +538,7 @@ def new_invoice():
         last_invoice = Invoice.query.order_by(Invoice.id.desc()).first()
         last_number_str = last_invoice.invoice_number if last_invoice else None
         invoice_number = generate_number(invoice_prefix, last_number_str)
+        
         title = request.form['title']
         customer_id = request.form['customer_id']
         invoice_date = datetime.strptime(request.form['date'], "%Y-%m-%d").date()
@@ -476,6 +549,7 @@ def new_invoice():
             due_date = None
         status = request.form.get('status', 'offen')
         notes = request.form.get('notes')
+        
         positions = []
         total_gross = 0
         total_net = 0
@@ -490,6 +564,7 @@ def new_invoice():
                 positions.append(InvoicePosition(name=name, quantity=quantity, gross=gross, vat=vat, net=net))
                 total_gross += gross * quantity
                 total_net += net * quantity
+        
         invoice = Invoice(
             invoice_number=invoice_number,
             title=title,
@@ -502,12 +577,13 @@ def new_invoice():
             notes=notes
         )
         db.session.add(invoice)
-        db.session.flush()
+        db.session.flush()  # invoice.id verfügbar machen
         for pos in positions:
             pos.invoice_id = invoice.id
             db.session.add(pos)
         db.session.commit()
         return redirect(url_for('invoices'))
+    
     today = date.today().isoformat()
     catalog_positions_dicts = [
         {
@@ -521,11 +597,24 @@ def new_invoice():
     ]
     return render_template('invoice_form.html', customers=customers, invoice=None, today=today, catalog_positions=catalog_positions_dicts)
 
+@app.route('/invoices/<int:invoice_id>/print')
+def print_invoice(invoice_id):
+    invoice = Invoice.query.get_or_404(invoice_id)
+    company = CompanySettings.query.first()
+    # Versuche, das Rechnung-Template aus der DB zu laden
+    template = PdfTemplate.query.filter_by(name="Rechnung").first()
+    if template:
+        # Template aus DB als Jinja2-Template rendern
+        from flask import render_template_string
+        return render_template_string(template.content, invoice=invoice, company=company)
+    # Fallback: streamlined Template verwenden
+    return render_template('invoice_template_streamlined.html', invoice=invoice, company=company)
+
 @app.route('/invoices/<int:invoice_id>/edit', methods=['GET', 'POST'])
 def edit_invoice(invoice_id):
     from models import CatalogPosition
-    catalog_positions = CatalogPosition.query.all()
     invoice = Invoice.query.get_or_404(invoice_id)
+    catalog_positions = CatalogPosition.query.all()
     customers = Customer.query.all()
     if request.method == 'POST':
         invoice.title = request.form['title']
@@ -538,8 +627,12 @@ def edit_invoice(invoice_id):
             invoice.due_date = None
         invoice.status = request.form.get('status', 'offen')
         invoice.notes = request.form.get('notes')
-        InvoicePosition.query.filter_by(invoice_id=invoice.id).delete()
-        db.session.flush()
+        
+        # Alte Positionen löschen
+        for pos in invoice.positions:
+            db.session.delete(pos)
+        
+        # Neue Positionen hinzufügen
         positions = []
         total_gross = 0
         total_net = 0
@@ -551,16 +644,19 @@ def edit_invoice(invoice_id):
                 gross = float(request.form.get(f'positions[{idx}][gross]', 0))
                 vat = float(request.form.get(f'positions[{idx}][vat]', 20))
                 net = gross / (1 + vat/100)
-                pos = InvoicePosition(name=name, quantity=quantity, gross=gross, vat=vat, net=net, invoice_id=invoice.id)
-                db.session.add(pos)
+                positions.append(InvoicePosition(name=name, quantity=quantity, gross=gross, vat=vat, net=net, invoice_id=invoice.id))
                 total_gross += gross * quantity
                 total_net += net * quantity
+        
         invoice.total_gross = total_gross
         invoice.total_net = total_net
+        
+        for pos in positions:
+            db.session.add(pos)
+        
         db.session.commit()
-        flash('Rechnung erfolgreich aktualisiert!', 'success')
         return redirect(url_for('invoices'))
-    today = invoice.date.isoformat() if invoice.date else date.today().isoformat()
+    
     catalog_positions_dicts = [
         {
             'id': pos.id,
@@ -571,73 +667,22 @@ def edit_invoice(invoice_id):
             'vat': pos.vat
         } for pos in catalog_positions
     ]
-    return render_template('invoice_form.html', invoice=invoice, customers=customers, today=today, catalog_positions=catalog_positions_dicts)
-
-@app.route('/invoices/<int:invoice_id>/print')
-def print_invoice(invoice_id):
-    invoice = Invoice.query.get_or_404(invoice_id)
-    company = CompanySettings.query.first()
-    # Versuche, das Rechnung-Template aus der DB zu laden
-    template = PdfTemplate.query.filter_by(name="Rechnung").first()
-    if template:
-        from flask import render_template_string
-        return render_template_string(template.content, invoice=invoice, company=company)
-    # Fallback: statisches Template
-    return render_template('invoice_print.html', invoice=invoice, company=company)
+    return render_template('invoice_form.html', customers=customers, invoice=invoice, catalog_positions=catalog_positions_dicts)
 
 @app.route('/invoices/<int:invoice_id>/delete')
 def delete_invoice(invoice_id):
     invoice = Invoice.query.get_or_404(invoice_id)
-    InvoicePosition.query.filter_by(invoice_id=invoice.id).delete()
     db.session.delete(invoice)
     db.session.commit()
+    flash('Rechnung wurde gelöscht.', 'success')
     return redirect(url_for('invoices'))
 
-@app.route('/company-settings', methods=['GET', 'POST'])
-def company_settings():
-    settings = CompanySettings.query.first()
-    if not settings:
-        settings = CompanySettings()
-        db.session.add(settings)
-        db.session.commit()
-    if request.method == 'POST':
-        settings.name = request.form['name']
-        settings.street = request.form['street']
-        settings.house_number = request.form['house_number']
-        settings.postal_code = request.form['postal_code']
-        settings.city = request.form['city']
-        settings.country = request.form['country']
-        settings.uid = request.form['uid']
-        settings.firmenbuchnummer = request.form['firmenbuchnummer']
-        settings.wirtschaftskammer = request.form['wirtschaftskammer']
-        settings.iban = request.form['iban']
-        settings.bic = request.form['bic']
-        settings.bank = request.form['bank']
-        settings.email = request.form['email']
-        settings.phone = request.form['phone']
-        settings.website = request.form['website']
-        settings.notes = request.form['notes']
-        settings.offer_number_prefix = request.form.get('offer_number_prefix', 'One-Offer-$id')
-        settings.invoice_number_prefix = request.form.get('invoice_number_prefix', 'One-Inv-$id')
-        if 'logo' in request.files and request.files['logo'].filename:
-            logo = request.files['logo']
-            filename = secure_filename(logo.filename)
-            logo.save(os.path.join('instance', filename))
-            settings.logo_filename = filename
-        db.session.commit()
-        flash('Firmendaten gespeichert!', 'success')
-        return redirect(url_for('company_settings'))
-    return render_template('company_settings.html', settings=settings)
-
-@app.route('/instance/<filename>')
-def uploaded_logo(filename):
-    return send_from_directory('instance', filename)
-
+# Offer Edit/Delete Routes
 @app.route('/offers/<int:offer_id>/edit', methods=['GET', 'POST'])
 def edit_offer(offer_id):
     from models import CatalogPosition
-    catalog_positions = CatalogPosition.query.all()
     offer = Offer.query.get_or_404(offer_id)
+    catalog_positions = CatalogPosition.query.all()
     customers = Customer.query.all()
     if request.method == 'POST':
         offer.title = request.form['title']
@@ -650,9 +695,12 @@ def edit_offer(offer_id):
             offer.valid_until = None
         offer.status = request.form.get('status', 'offen')
         offer.notes = request.form.get('notes')
-        # Positionen aktualisieren: alte löschen, neue anlegen
-        OfferPosition.query.filter_by(offer_id=offer.id).delete()
-        db.session.flush()
+        
+        # Alte Positionen löschen
+        for pos in offer.positions:
+            db.session.delete(pos)
+        
+        # Neue Positionen hinzufügen
         positions = []
         total_gross = 0
         total_net = 0
@@ -664,17 +712,19 @@ def edit_offer(offer_id):
                 gross = float(request.form.get(f'positions[{idx}][gross]', 0))
                 vat = float(request.form.get(f'positions[{idx}][vat]', 20))
                 net = gross / (1 + vat/100)
-                pos = OfferPosition(name=name, quantity=quantity, gross=gross, vat=vat, net=net, offer_id=offer.id)
-                db.session.add(pos)
+                positions.append(OfferPosition(name=name, quantity=quantity, gross=gross, vat=vat, net=net, offer_id=offer.id))
                 total_gross += gross * quantity
                 total_net += net * quantity
+        
         offer.total_gross = total_gross
         offer.total_net = total_net
+        
+        for pos in positions:
+            db.session.add(pos)
+        
         db.session.commit()
-        flash('Angebot erfolgreich aktualisiert!', 'success')
         return redirect(url_for('offers'))
-    # GET: Formular mit bestehenden Daten füllen
-    today = offer.date.isoformat() if offer.date else date.today().isoformat()
+    
     catalog_positions_dicts = [
         {
             'id': pos.id,
@@ -685,269 +735,180 @@ def edit_offer(offer_id):
             'vat': pos.vat
         } for pos in catalog_positions
     ]
-    return render_template('offer_form.html', customers=customers, offer=offer, today=today, catalog_positions=catalog_positions_dicts)
+    return render_template('offer_form.html', customers=customers, offer=offer, catalog_positions=catalog_positions_dicts)
 
+@app.route('/offers/<int:offer_id>/delete')
+def delete_offer(offer_id):
+    offer = Offer.query.get_or_404(offer_id)
+    db.session.delete(offer)
+    db.session.commit()
+    flash('Angebot wurde gelöscht.', 'success')
+    return redirect(url_for('offers'))
+
+# Project Routes
 @app.route('/projects')
 def projects():
     all_projects = Project.query.all()
     return render_template('projects.html', projects=all_projects)
+
+@app.route('/projects/new', methods=['GET', 'POST'])
+def new_project():
+    customers = Customer.query.all()
+    if request.method == 'POST':
+        name = request.form['name']
+        customer_id = request.form['customer_id']
+        project_date = datetime.strptime(request.form['date'], "%Y-%m-%d").date()
+        categories = request.form['categories']
+        
+        project = Project(
+            name=name,
+            customer_id=customer_id,
+            date=project_date,
+            categories=categories
+        )
+        db.session.add(project)
+        db.session.commit()
+        return redirect(url_for('projects'))
+    
+    today = date.today().isoformat()
+    return render_template('project_form.html', customers=customers, project=None, today=today)
 
 @app.route('/projects/<int:project_id>')
 def project_detail(project_id):
     project = Project.query.get_or_404(project_id)
     return render_template('project_detail.html', project=project)
 
-@app.route('/projects/new', methods=['GET', 'POST'])
-def new_project():
-    customers = Customer.query.all()
-    offers = Offer.query.all()
-    invoices = Invoice.query.all()
-    categories_list = ['Foto', 'Video', 'Branding', 'Dokumente']
-    if request.method == 'POST':
-        name = request.form['name']
-        date_val = datetime.strptime(request.form['date'], "%Y-%m-%d").date()
-        customer_id = request.form['customer_id']
-        categories = ','.join(request.form.getlist('categories'))
-        offer_ids = request.form.getlist('offers')
-        invoice_ids = request.form.getlist('invoices')
-        project = Project(name=name, date=date_val, customer_id=customer_id, categories=categories)
-        for oid in offer_ids:
-            offer = Offer.query.get(int(oid))
-            if offer:
-                project.offers.append(offer)
-        for iid in invoice_ids:
-            invoice = Invoice.query.get(int(iid))
-            if invoice:
-                project.invoices.append(invoice)
-        db.session.add(project)
-        db.session.commit()
-        return redirect(url_for('projects'))
-    today = date.today().isoformat()
-    return render_template('project_form.html', customers=customers, offers=offers, invoices=invoices, categories_list=categories_list, today=today)
-
 @app.route('/projects/<int:project_id>/edit', methods=['GET', 'POST'])
 def edit_project(project_id):
     project = Project.query.get_or_404(project_id)
     customers = Customer.query.all()
-    offers = Offer.query.all()
-    invoices = Invoice.query.all()
-    categories_list = ['Foto', 'Video', 'Branding', 'Dokumente']
     if request.method == 'POST':
         project.name = request.form['name']
-        project.date = datetime.strptime(request.form['date'], "%Y-%m-%d").date()
         project.customer_id = request.form['customer_id']
-        project.categories = ','.join(request.form.getlist('categories'))
-        # Angebote und Rechnungen neu zuordnen
-        project.offers = []
-        project.invoices = []
-        offer_ids = request.form.getlist('offers')
-        invoice_ids = request.form.getlist('invoices')
-        for oid in offer_ids:
-            offer = Offer.query.get(int(oid))
-            if offer:
-                project.offers.append(offer)
-        for iid in invoice_ids:
-            invoice = Invoice.query.get(int(iid))
-            if invoice:
-                project.invoices.append(invoice)
+        project.date = datetime.strptime(request.form['date'], "%Y-%m-%d").date()
+        project.categories = request.form['categories']
         db.session.commit()
         return redirect(url_for('projects'))
-    selected_categories = project.categories.split(',') if project.categories else []
-    selected_offers = [o.id for o in project.offers]
-    selected_invoices = [i.id for i in project.invoices]
-    return render_template('project_form.html', project=project, customers=customers, offers=offers, invoices=invoices, categories_list=categories_list, selected_categories=selected_categories, selected_offers=selected_offers, selected_invoices=selected_invoices)
+    
+    return render_template('project_form.html', customers=customers, project=project)
 
 @app.route('/projects/<int:project_id>/delete')
 def delete_project(project_id):
     project = Project.query.get_or_404(project_id)
     db.session.delete(project)
     db.session.commit()
+    flash('Projekt wurde gelöscht.', 'success')
     return redirect(url_for('projects'))
 
-@app.route('/projects/<int:project_id>/datenschutz')
-def project_datenschutz(project_id):
-    project = Project.query.get_or_404(project_id)
-    company = CompanySettings.query.first()
-    customer = project.customer
-    categories = [c.strip() for c in project.categories.split(',') if c.strip()]
-    # Textbausteine je Kategorie
-    kategorie_text = {
-        'Foto': "Für die Durchführung von Fotoaufträgen werden personenbezogene Daten (z.B. Name, Kontaktdaten, Bildmaterial) ausschließlich zur Vertragserfüllung verarbeitet. Die Aufnahmen werden gemäß den gesetzlichen Vorgaben gespeichert und nicht ohne Einwilligung veröffentlicht.",
-        'Video': "Für die Durchführung von Videoaufträge werden personenbezogene Daten (z.B. Name, Kontaktdaten, Videomaterial) ausschließlich zur Vertragserfüllung verarbeitet. Die Aufnahmen werden gemäß den gesetzlichen Vorgaben gespeichert und nicht ohne Einwilligung veröffentlicht.",
-        'Branding': "Im Rahmen von Branding- und Designprojekten werden personenbezogene Daten (z.B. Name, Kontaktdaten, Logos, Designentwürfe) ausschließlich zur Vertragserfüllung verarbeitet.",
-        'Dokumente': "Für die Erstellung und Bearbeitung von Dokumenten werden personenbezogene Daten (z.B. Name, Kontaktdaten, Text- und Bildmaterial) ausschließlich zur Vertragserfüllung verarbeitet."
-    }
-    kategorie_abschnitte = [kategorie_text[cat] for cat in categories if cat in kategorie_text]
-    # Datenschutztext generieren
-    datenschutz = f"""
-DATENSCHUTZERKLÄRUNG FÜR DAS PROJEKT: {project.name}\n\n
-Verantwortlicher:
-{company.name}\n{company.street} {company.house_number}, {company.postal_code} {company.city}, {company.country}\nE-Mail: {company.email} | Telefon: {company.phone}
-
-Kunde:
-{customer.name or (customer.first_name + ' ' + customer.last_name)}\n{customer.street} {customer.house_number}, {customer.postal_code} {customer.city}, {customer.country}\nE-Mail: {customer.email} | Telefon: {customer.phone}
-
-Zweck der Datenverarbeitung:
-""" + '\n'.join(f"- {abschnitt}" for abschnitt in kategorie_abschnitte) + f"""
-
-Rechtsgrundlage:
-Die Verarbeitung erfolgt auf Grundlage von Art. 6 Abs. 1 lit. b DSGVO (Vertragserfüllung) sowie ggf. auf Basis gesetzlicher Aufbewahrungspflichten.
-
-Weitergabe:
-Eine Weitergabe an Dritte erfolgt nur, sofern dies zur Vertragserfüllung notwendig ist oder eine gesetzliche Verpflichtung besteht.
-
-Speicherdauer:
-Die Daten werden für die Dauer der gesetzlichen Aufbewahrungsfristen gespeichert. Bild- und Videomaterial wird nur mit Einwilligung veröffentlicht.
-
-Betroffenenrechte:
-Sie haben das Recht auf Auskunft, Berichtigung, Löschung, Einschränkung der Verarbeitung, Datenübertragbarkeit und Widerspruch. Beschwerden richten Sie an die Datenschutzbehörde.
-
-Ort, Datum: ____________________________
-Unterschrift Kunde: ____________________
-Unterschrift Auftragnehmer: ____________
-"""
-    response = make_response(datenschutz)
-    response.headers['Content-Type'] = 'text/plain; charset=utf-8'
-    response.headers['Content-Disposition'] = f'attachment; filename=Datenschutzerklaerung_Projekt_{project.id}.txt'
-    return response
-
-@app.route('/projects/<int:project_id>/datenschutz_pdf')
-def project_datenschutz_pdf(project_id):
-    project = Project.query.get_or_404(project_id)
-    company = CompanySettings.query.first()
-    customer = project.customer
-    categories = [c.strip() for c in project.categories.split(',') if c.strip()]
-    kategorie_text = {
-        'Foto': "Für die Durchführung von Fotoaufträgen werden personenbezogene Daten (z.B. Name, Kontaktdaten, Bildmaterial) ausschließlich zur Vertragserfüllung verarbeitet. Die Aufnahmen werden gemäß den gesetzlichen Vorgaben gespeichert und nicht ohne Einwilligung veröffentlicht.",
-        'Video': "Für die Durchführung von Videoaufträge werden personenbezogene Daten (z.B. Name, Kontaktdaten, Videomaterial) ausschließlich zur Vertragserfüllung verarbeitet. Die Aufnahmen werden gemäß den gesetzlichen Vorgaben gespeichert und nicht ohne Einwilligung veröffentlicht.",
-        'Branding': "Im Rahmen von Branding- und Designprojekten werden personenbezogene Daten (z.B. Name, Kontaktdaten, Logos, Designentwürfe) ausschließlich zur Vertragserfüllung verarbeitet.",
-        'Dokumente': "Für die Erstellung und Bearbeitung von Dokumenten werden personenbezogene Daten (z.B. Name, Kontaktdaten, Text- und Bildmaterial) ausschließlich zur Vertragserfüllung verarbeitet."
-    }
-    kategorie_abschnitte = [kategorie_text[cat] for cat in categories if cat in kategorie_text]
-    buffer = BytesIO()
-    p = canvas.Canvas(buffer, pagesize=A4)
-    width, height = A4
-    y = height - 40
-    p.setFont("Helvetica-Bold", 14)
-    p.drawString(40, y, f"Datenschutzerklärung für das Projekt: {project.name}")
-    y -= 30
-    p.setFont("Helvetica", 10)
-    p.drawString(40, y, "Verantwortlicher:")
-    y -= 15
-    p.setFont("Helvetica", 10)
-    p.drawString(60, y, f"{company.name}")
-    y -= 15
-    p.drawString(60, y, f"{company.street} {company.house_number}, {company.postal_code} {company.city}, {company.country}")
-    y -= 15
-    p.drawString(60, y, f"E-Mail: {company.email} | Telefon: {company.phone}")
-    y -= 25
-    p.setFont("Helvetica", 10)
-    p.drawString(40, y, "Kunde:")
-    y -= 15
-    p.drawString(60, y, f"{customer.name or (customer.first_name + ' ' + customer.last_name)}")
-    y -= 15
-    p.drawString(60, y, f"{customer.street} {customer.house_number}, {customer.postal_code} {customer.city}, {customer.country}")
-    y -= 15
-    p.drawString(60, y, f"E-Mail: {customer.email} | Telefon: {customer.phone}")
-    y -= 25
-    p.setFont("Helvetica-Bold", 11)
-    p.drawString(40, y, "Zweck der Datenverarbeitung:")
-    y -= 18
-    p.setFont("Helvetica", 10)
-    for abschnitt in kategorie_abschnitte:
-        import textwrap
-        for wrapped_line in textwrap.wrap(f"- {abschnitt}", 100):
-            p.drawString(60, y, wrapped_line)
-            y -= 13
-        y -= 5
-    y -= 10
-    p.setFont("Helvetica-Bold", 11)
-    p.drawString(40, y, "Rechtsgrundlage:")
-    y -= 15
-    p.setFont("Helvetica", 10)
-    for wrapped_line in textwrap.wrap("Die Verarbeitung erfolgt auf Grundlage von Art. 6 Abs. 1 lit. b DSGVO (Vertragserfüllung) sowie ggf. auf Basis gesetzlicher Aufbewahrungspflichten.", 100):
-        p.drawString(60, y, wrapped_line)
-        y -= 13
-    y -= 12
-    p.setFont("Helvetica-Bold", 11)
-    p.drawString(40, y, "Weitergabe:")
-    y -= 15
-    p.setFont("Helvetica", 10)
-    for wrapped_line in textwrap.wrap("Eine Weitergabe an Dritte erfolgt nur, sofern dies zur Vertragserfüllung notwendig ist oder eine gesetzliche Verpflichtung besteht.", 100):
-        p.drawString(60, y, wrapped_line)
-        y -= 13
-    y -= 12
-    p.setFont("Helvetica-Bold", 11)
-    p.drawString(40, y, "Speicherdauer:")
-    y -= 15
-    p.setFont("Helvetica", 10)
-    for wrapped_line in textwrap.wrap("Die Daten werden für die Dauer der gesetzlichen Aufbewahrungsfristen gespeichert. Bild- und Videomaterial wird nur mit Einwilligung veröffentlicht.", 100):
-        p.drawString(60, y, wrapped_line)
-        y -= 13
-    y -= 12
-    p.setFont("Helvetica-Bold", 11)
-    p.drawString(40, y, "Betroffenenrechte:")
-    y -= 15
-    p.setFont("Helvetica", 10)
-    for wrapped_line in textwrap.wrap("Sie haben das Recht auf Auskunft, Berichtigung, Löschung, Einschränkung der Verarbeitung, Datenübertragbarkeit und Widerspruch. Beschwerden richten Sie an die Datenschutzbehörde.", 100):
-        p.drawString(60, y, wrapped_line)
-        y -= 13
-    y -= 30
-    # Unterschriftenbereich größer und Linien länger
-    p.setFont("Helvetica", 12)
-    p.drawString(40, y, "Ort, Datum: " + "_"*60)
-    y -= 25
-    p.setFont("Helvetica", 12)
-    p.drawString(40, y, "Unterschrift Kunde: " + "_"*50)
-    y -= 25
-    p.setFont("Helvetica", 12)
-    p.drawString(40, y, "Unterschrift Auftragnehmer: " + "_"*44)
-    p.showPage()
-    p.save()
-    buffer.seek(0)
-    return send_file(
-        buffer,
-        as_attachment=True,
-        mimetype='application/pdf',
-        download_name=f"Datenschutzerklaerung_Projekt_{project_id}.pdf"
-    )
-
-# ALLE Routen außer /login, /logout, /instance/<filename> und static schützen
-PROTECTED_ROUTES = [
-    'index', 'customers', 'new_customer', 'edit_customer', 'delete_customer',
-    'offers', 'new_offer', 'edit_offer', 'print_offer',
-    'invoices', 'new_invoice', 'edit_invoice', 'print_invoice', 'delete_invoice',
-    'company_settings', 'projects', 'project_detail', 'new_project', 'edit_project', 'delete_project',
-    'project_datenschutz', 'project_datenschutz_pdf',
-    'positions', 'new_position', 'edit_position', 'delete_position'
-]
-for route in PROTECTED_ROUTES:
-    view_func = app.view_functions.get(route)
-    if view_func:
-        app.view_functions[route] = login_required(view_func)
-
-@app.route('/login', methods=['GET', 'POST'])
-def login():
+# Company Settings
+@app.route('/company-settings', methods=['GET', 'POST'])
+def company_settings():
+    settings = CompanySettings.query.first()
+    if not settings:
+        settings = CompanySettings()
+        db.session.add(settings)
+        db.session.commit()
+    
     if request.method == 'POST':
-        username = request.form['username']
-        password = request.form['password']
-        user = User.query.filter_by(username=username).first()
-        if user and user.check_password(password):
-            session['user_id'] = user.id
-            session['token_expiry'] = (datetime.utcnow() + timedelta(hours=1)).isoformat()
-            flash('Login erfolgreich!', 'success')
-            return redirect(url_for('index'))
-        else:
-            flash('Ungültiger Benutzername oder Passwort.', 'danger')
-    return render_template('login.html')
+        settings.name = request.form.get('name')
+        settings.street = request.form.get('street')
+        settings.house_number = request.form.get('house_number')
+        settings.postal_code = request.form.get('postal_code')
+        settings.city = request.form.get('city')
+        settings.country = request.form.get('country')
+        settings.uid = request.form.get('uid')
+        settings.firmenbuchnummer = request.form.get('firmenbuchnummer')
+        settings.wirtschaftskammer = request.form.get('wirtschaftskammer')
+        settings.iban = request.form.get('iban')
+        settings.bic = request.form.get('bic')
+        settings.bank = request.form.get('bank')
+        settings.email = request.form.get('email')
+        settings.phone = request.form.get('phone')
+        settings.website = request.form.get('website')
+        settings.notes = request.form.get('notes')
+        settings.offer_number_prefix = request.form.get('offer_number_prefix', 'One-Offer-$id')
+        settings.invoice_number_prefix = request.form.get('invoice_number_prefix', 'One-Inv-$id')
+        
+        # PDF Template Farben
+        settings.primary_color = request.form.get('primary_color', '#667eea')
+        settings.secondary_color = request.form.get('secondary_color', '#764ba2')
+        settings.accent_color = request.form.get('accent_color', '#4299e1')
+        settings.text_color = request.form.get('text_color', '#2d3748')
+        
+        # Logo-Upload
+        if 'logo' in request.files:
+            logo_file = request.files['logo']
+            if logo_file and logo_file.filename:
+                filename = secure_filename(logo_file.filename)
+                logo_path = os.path.join(app.instance_path, filename)
+                logo_file.save(logo_path)
+                settings.logo_filename = filename
+        
+        db.session.commit()
+        flash('Firmeneinstellungen wurden gespeichert.', 'success')
+        return redirect(url_for('company_settings'))
+    
+    return render_template('company_settings.html', settings=settings)
 
-@app.route('/logout')
-def logout():
-    session.clear()
-    flash('Abgemeldet.', 'info')
-    return redirect(url_for('login'))
+# Positions/Catalog
+@app.route('/positions')
+def positions():
+    all_positions = CatalogPosition.query.all()
+    return render_template('positions.html', positions=all_positions)
 
-# --- User Management Routes (Admin only) ---
+@app.route('/positions/new', methods=['GET', 'POST'])
+def new_position():
+    if request.method == 'POST':
+        name = request.form['name']
+        description = request.form.get('description')
+        unit = request.form.get('unit', 'Stk.')
+        price = float(request.form['price'])
+        vat = float(request.form.get('vat', 20.0))
+        
+        position = CatalogPosition(
+            name=name,
+            description=description,
+            unit=unit,
+            price=price,
+            vat=vat
+        )
+        db.session.add(position)
+        db.session.commit()
+        flash('Position wurde hinzugefügt.', 'success')
+        return redirect(url_for('positions'))
+    
+    return render_template('position_form.html')
+
+@app.route('/positions/<int:position_id>/edit', methods=['GET', 'POST'])
+def edit_position(position_id):
+    position = CatalogPosition.query.get_or_404(position_id)
+    if request.method == 'POST':
+        position.name = request.form['name']
+        position.description = request.form.get('description')
+        position.unit = request.form.get('unit', 'Stk.')
+        position.price = float(request.form['price'])
+        position.vat = float(request.form.get('vat', 20.0))
+        db.session.commit()
+        flash('Position wurde aktualisiert.', 'success')
+        return redirect(url_for('positions'))
+    
+    return render_template('position_form.html', position=position)
+
+@app.route('/positions/<int:position_id>/delete')
+def delete_position(position_id):
+    position = CatalogPosition.query.get_or_404(position_id)
+    db.session.delete(position)
+    db.session.commit()
+    flash('Position wurde gelöscht.', 'success')
+    return redirect(url_for('positions'))
+
+# Instance files (for logo uploads)
+@app.route('/instance/<filename>')
+def uploaded_file(filename):
+    return send_from_directory(app.instance_path, filename)
+
+# ===== ADMIN ROUTES =====
+
 @app.route('/users')
 @admin_required
 def users():
@@ -961,30 +922,34 @@ def new_user():
         username = request.form['username']
         password = request.form['password']
         role = request.form['role']
+        
+        # Check if username already exists
         if User.query.filter_by(username=username).first():
-            flash('Benutzername existiert bereits.', 'danger')
-            return redirect(url_for('new_user'))
+            flash('Benutzername bereits vorhanden.', 'error')
+            return render_template('user_form.html')
+        
         user = User(username=username, role=role)
         user.set_password(password)
         db.session.add(user)
         db.session.commit()
-        flash('Benutzer angelegt.', 'success')
+        flash('Benutzer wurde erstellt.', 'success')
         return redirect(url_for('users'))
-    return render_template('user_form.html', user=None)
+    
+    return render_template('user_form.html')
 
 @app.route('/users/<int:user_id>/edit', methods=['GET', 'POST'])
 @admin_required
 def edit_user(user_id):
     user = User.query.get_or_404(user_id)
     if request.method == 'POST':
-        password = request.form['password']
-        role = request.form['role']
+        user.role = request.form['role']
+        password = request.form.get('password')
         if password:
             user.set_password(password)
-        user.role = role
         db.session.commit()
-        flash('Benutzer aktualisiert.', 'success')
+        flash('Benutzer wurde aktualisiert.', 'success')
         return redirect(url_for('users'))
+    
     return render_template('user_form.html', user=user)
 
 @app.route('/users/<int:user_id>/delete')
@@ -992,31 +957,19 @@ def edit_user(user_id):
 def delete_user(user_id):
     user = User.query.get_or_404(user_id)
     if user.id == g.user.id:
-        flash('Du kannst dich nicht selbst löschen.', 'danger')
+        flash('Sie können sich nicht selbst löschen.', 'error')
         return redirect(url_for('users'))
+    
     db.session.delete(user)
     db.session.commit()
-    flash('Benutzer gelöscht.', 'success')
+    flash('Benutzer wurde gelöscht.', 'success')
     return redirect(url_for('users'))
 
 @app.route('/templates')
 @admin_required
 def templates():
-    templates = PdfTemplate.query.all()
-    return render_template('templates.html', templates=templates)
-
-@app.route('/templates/new', methods=['GET', 'POST'])
-@admin_required
-def new_template():
-    if request.method == 'POST':
-        name = request.form['name']
-        content = request.form['content']
-        template = PdfTemplate(name=name, content=content)
-        db.session.add(template)
-        db.session.commit()
-        flash('Vorlage erstellt!', 'success')
-        return redirect(url_for('templates'))
-    return render_template('edit_template.html', template=None)
+    all_templates = PdfTemplate.query.all()
+    return render_template('templates.html', templates=all_templates)
 
 @app.route('/templates/<int:template_id>/edit', methods=['GET', 'POST'])
 @admin_required
@@ -1025,117 +978,144 @@ def edit_template(template_id):
     if request.method == 'POST':
         template.content = request.form['content']
         db.session.commit()
-        flash('Vorlage gespeichert!', 'success')
+        flash('Template wurde aktualisiert.', 'success')
         return redirect(url_for('templates'))
+    
     return render_template('edit_template.html', template=template)
 
-@app.route('/templates/<int:template_id>/delete')
-@admin_required
-def delete_template(template_id):
-    template = PdfTemplate.query.get_or_404(template_id)
-    db.session.delete(template)
-    db.session.commit()
-    flash('Vorlage gelöscht.', 'success')
-    return redirect(url_for('templates'))
+# ===== END ADMIN ROUTES =====
 
-@app.route('/offers/<int:offer_id>/delete')
-def delete_offer(offer_id):
-    offer = Offer.query.get_or_404(offer_id)
-    db.session.delete(offer)
-    db.session.commit()
-    flash('Angebot wurde gelöscht.', 'success')
-    return redirect(url_for('offers'))
-
-@app.route('/offers/<int:offer_id>/convert', methods=['POST'])
-def convert_offer_to_invoice(offer_id):
-    offer = Offer.query.get_or_404(offer_id)
-    if offer.status not in ['angenommen', 'abgelehnt', 'abgelaufen']:
-        flash('Nur angenommene oder abgeschlossene Angebote können konvertiert werden.', 'danger')
-        return redirect(url_for('offers'))
-    # Prüfe, ob schon eine Rechnung existiert (optional, je nach Logik)
-    existing_invoice = Invoice.query.filter_by(title=offer.title, customer_id=offer.customer_id, total_gross=offer.total_gross).first()
-    if existing_invoice:
-        flash('Für dieses Angebot existiert bereits eine Rechnung.', 'warning')
-        return redirect(url_for('offers'))
-    # Rechnungsnummer generieren basierend auf Firmeneinstellungen
-    company_settings = CompanySettings.query.first()
-    invoice_prefix = company_settings.invoice_number_prefix if company_settings and company_settings.invoice_number_prefix else "One-Inv-$id"
+@app.route('/dynamic-colors.css')
+def dynamic_colors_css():
+    """Dynamische CSS-Datei mit benutzerdefinierten Farben aus den Company Settings"""
+    company = CompanySettings.query.first()
     
-    last_invoice = Invoice.query.order_by(Invoice.id.desc()).first()
-    last_number_str = last_invoice.invoice_number if last_invoice else None
-    invoice_number = generate_number(invoice_prefix, last_number_str)
-    invoice = Invoice(
-        invoice_number=invoice_number,
-        title=offer.title,
-        customer_id=offer.customer_id,
-        total_gross=offer.total_gross,
-        total_net=offer.total_net,
-        date=date.today(),
-        due_date=None,
-        status='offen',
-        notes=offer.notes
-    )
-    db.session.add(invoice)
-    db.session.flush()
-    # Positionen übernehmen
-    for pos in offer.positions:
-        db.session.add(InvoicePosition(
-            invoice_id=invoice.id,
-            name=pos.name,
-            quantity=pos.quantity,
-            gross=pos.gross,
-            vat=pos.vat,
-            net=pos.net
-        ))
-    db.session.commit()
-    flash('Angebot wurde in eine Rechnung konvertiert.', 'success')
-    return redirect(url_for('invoices'))
+    # Standardfarben als Fallback
+    primary_color = company.primary_color if company and company.primary_color else '#667eea'
+    secondary_color = company.secondary_color if company and company.secondary_color else '#764ba2'
+    accent_color = company.accent_color if company and company.accent_color else '#4299e1'
+    text_color = company.text_color if company and company.text_color else '#2d3748'
+    
+    css_content = f"""
+:root {{
+   --primary-color: {primary_color};
+   --secondary-color: {secondary_color};
+   --accent-color: {accent_color};
+   --text-color: {text_color};
+   
+   /* Dynamische Verläufe basierend auf benutzerdefinierten Farben */
+   --primary-gradient: linear-gradient(135deg, {primary_color} 0%, {secondary_color} 100%);
+   --accent-gradient: linear-gradient(135deg, {accent_color} 0%, {primary_color} 100%);
+   --success-gradient: linear-gradient(135deg, {accent_color} 0%, {secondary_color} 100%);
+}}
 
-@app.route('/positions')
-@login_required
-def positions():
-    positions = CatalogPosition.query.all()
-    return render_template('positions.html', positions=positions)
+/* Screen Styles Override */
+@media screen {{
+   body.pdf-template {{
+      background: var(--primary-gradient) !important;
+   }}
 
-@app.route('/positions/new', methods=['GET', 'POST'])
-@login_required
-def new_position():
-    if request.method == 'POST':
-        name = request.form['name']
-        description = request.form.get('description')
-        unit = request.form.get('unit', 'Stunde')
-        price = float(request.form['price'])
-        vat = float(request.form.get('vat', 20.0))
-        pos = CatalogPosition(name=name, description=description, unit=unit, price=price, vat=vat)
-        db.session.add(pos)
-        db.session.commit()
-        flash('Position gespeichert.', 'success')
-        return redirect(url_for('positions'))
-    return render_template('position_form.html')
+   .document-header {{
+      background: var(--text-color) !important;
+   }}
 
-@app.route('/positions/<int:position_id>/edit', methods=['GET', 'POST'])
-@login_required
-def edit_position(position_id):
-    pos = CatalogPosition.query.get_or_404(position_id)
-    if request.method == 'POST':
-        pos.name = request.form['name']
-        pos.description = request.form.get('description')
-        pos.unit = request.form.get('unit', 'Stunde')
-        pos.price = float(request.form['price'])
-        pos.vat = float(request.form.get('vat', 20.0))
-        db.session.commit()
-        flash('Position aktualisiert.', 'success')
-        return redirect(url_for('positions'))
-    return render_template('position_form.html', position=pos)
+   .document-header::before {{
+      background: var(--primary-gradient) !important;
+   }}
 
-@app.route('/positions/<int:position_id>/delete')
-@login_required
-def delete_position(position_id):
-    pos = CatalogPosition.query.get_or_404(position_id)
-    db.session.delete(pos)
-    db.session.commit()
-    flash('Position gelöscht.', 'success')
-    return redirect(url_for('positions'))
+   .info-card::before {{
+      background: var(--primary-gradient) !important;
+   }}
+
+   .info-card.customer-card::before {{
+      background: var(--accent-gradient) !important;
+   }}
+
+   .meta-section {{
+      background: var(--primary-gradient) !important;
+   }}
+
+   .modern-table thead {{
+      background: var(--primary-gradient) !important;
+   }}
+
+   .summary-total {{
+      background: var(--primary-gradient) !important;
+   }}
+
+   .signatures-section {{
+      background-image: linear-gradient(white, white), var(--success-gradient) !important;
+   }}
+
+   .notes-section {{
+      border-image: var(--accent-gradient) 1 !important;
+   }}
+
+   .download-btn {{
+      background: var(--success-gradient) !important;
+   }}
+
+   .status-offen {{
+      background: linear-gradient(135deg, #ffecd2 0%, {accent_color} 100%) !important;
+      color: {text_color} !important;
+   }}
+
+   .status-angenommen, .status-bezahlt {{
+      background: var(--success-gradient) !important;
+   }}
+
+   .status-abgelehnt, .status-überfällig {{
+      background: var(--accent-gradient) !important;
+   }}
+}}
+
+/* Print Styles Override */
+@media print {{
+   .document-header {{
+      background: var(--primary-gradient) !important;
+   }}
+
+   .info-card::before {{
+      background: var(--primary-gradient) !important;
+   }}
+
+   .info-card.customer-card::before {{
+      background: var(--accent-gradient) !important;
+   }}
+
+   .meta-section {{
+      background: var(--primary-gradient) !important;
+   }}
+
+   .modern-table thead {{
+      background: var(--primary-gradient) !important;
+   }}
+
+   .summary-total {{
+      background: var(--primary-gradient) !important;
+   }}
+
+   .footer-section {{
+      background: {text_color} !important;
+   }}
+
+   .signatures-section {{
+      border: 2px solid {accent_color} !important;
+   }}
+
+   .notes-section {{
+      border-left: 3px solid {accent_color} !important;
+   }}
+}}
+"""
+    
+    response = app.response_class(css_content, mimetype='text/css')
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    with app.app_context():
+        db.create_all()
+    app.run(debug=True, host='0.0.0.0', port=5000)

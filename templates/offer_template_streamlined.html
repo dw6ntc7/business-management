@@ -1,0 +1,68 @@
+{% extends 'base.html' %}
+{% from 'pdf_macros.html' import 
+    company_info_card, 
+    customer_info_card, 
+    document_header, 
+    meta_section, 
+    positions_table, 
+    summary_card, 
+    notes_section, 
+    signatures_section, 
+    footer_section, 
+    action_buttons 
+%}
+
+{% block content %}
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='pdf-styles.css') }}">
+<link rel="stylesheet" href="{{ url_for('dynamic_colors_css') }}">
+
+<div class="document-container">
+   <!-- Action Buttons (nur für Screen) -->
+   {{ action_buttons(offer.offer_number, "offer") }}
+
+   <div class="document-card" id="angebot-content">
+      <!-- Document Header -->
+      {{ document_header("ANGEBOT", offer.offer_number, offer.status) }}
+      
+      <!-- Content Section -->
+      <div class="content-section">
+         <!-- Company & Customer Grid -->
+         <div class="company-customer-grid">
+            {{ company_info_card(company) }}
+            {{ customer_info_card(offer.customer) }}
+         </div>
+
+         <!-- Meta Information -->
+         {{ meta_section([
+            {"label": "Angebotsdatum", "value": offer.date.strftime('%d.%m.%Y')},
+            {"label": "Gültig bis", "value": offer.valid_until.strftime('%d.%m.%Y') if offer.valid_until else '-'}
+         ]) }}
+
+         <!-- Positions Table -->
+         {{ positions_table(offer.positions) }}
+
+         <!-- Summary -->
+         {{ summary_card(offer.total_net, offer.total_gross, "Angebot") }}
+
+         <!-- Notes -->
+         {{ notes_section(offer.notes, "Dieses Angebot ist bis zum angegebenen Datum gültig. Änderungen und Irrtümer vorbehalten.") }}
+
+         <!-- Signatures Section -->
+         {{ signatures_section(offer.customer, company, "Angebot") }}
+
+         <!-- Footer -->
+         {{ footer_section(company) }}
+      </div>
+   </div>
+</div>
+
+<script src="{{ url_for('static', filename='pdf-utils.js') }}"></script>
+<script>
+// Initialize document
+document.addEventListener('DOMContentLoaded', function() {
+   console.log('Modernes Angebot Template geladen');
+});
+</script>
+{% endblock %}

@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR-Code Test</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='pdf-styles.css') }}">
+    <script src="https://unpkg.com/qrcode-generator@1.4.4/qrcode.js"></script>
+    <script src="{{ url_for('static', filename='pdf-utils.js') }}"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>QR-Code Funktionalitäts-Test</h1>
+        
+        <div class="qr-code-section">
+            <h4>💳 Test-Zahlung per QR-Code</h4>
+            <div class="qr-code-container" id="qr-test-payment"></div>
+            <p>Scannen Sie den QR-Code mit Ihrer Banking-App für eine Test-Überweisung</p>
+        </div>
+        
+        <div class="qr-code-section">
+            <h4>🌐 Website QR-Code</h4>
+            <div class="qr-code-container" id="qr-test-website"></div>
+            <p>QR-Code für Website-Link</p>
+        </div>
+        
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                console.log('QR Test Page loaded, testing QR codes...');
+                
+                // Test Payment QR
+                const paymentData = 'BCD\n002\n1\nSCT\nGEBGAT21\nTestfirma GmbH\nAT123456789012345678\nEUR123.45\n\nTestrechnung 001\n';
+                
+                // Use the same approach as the invoice template
+                function generateTestQRs() {
+                    if (typeof qrcode === 'undefined') {
+                        console.log('qrcode library not ready, retrying...');
+                        setTimeout(generateTestQRs, 200);
+                        return;
+                    }
+                    
+                    console.log('Generating test QR codes...');
+                    
+                    // Generate payment QR
+                    try {
+                        const qr1 = qrcode(0, 'M');
+                        qr1.addData(paymentData);
+                        qr1.make();
+                        
+                        const container1 = document.getElementById('qr-test-payment');
+                        if (container1) {
+                            container1.innerHTML = qr1.createSvgTag({
+                                cellSize: 4,
+                                margin: 2,
+                                scalable: true
+                            });
+                            const svg1 = container1.querySelector('svg');
+                            if (svg1) {
+                                svg1.style.width = '120px';
+                                svg1.style.height = '120px';
+                                svg1.style.border = '1px solid #e2e8f0';
+                                svg1.style.borderRadius = '8px';
+                            }
+                        }
+                    } catch (error) {
+                        console.error('Error generating payment QR:', error);
+                    }
+                    
+                    // Generate website QR
+                    try {
+                        const qr2 = qrcode(0, 'M');
+                        qr2.addData('https://www.example.com');
+                        qr2.make();
+                        
+                        const container2 = document.getElementById('qr-test-website');
+                        if (container2) {
+                            container2.innerHTML = qr2.createSvgTag({
+                                cellSize: 4,
+                                margin: 2,
+                                scalable: true
+                            });
+                            const svg2 = container2.querySelector('svg');
+                            if (svg2) {
+                                svg2.style.width = '120px';
+                                svg2.style.height = '120px';
+                                svg2.style.border = '1px solid #e2e8f0';
+                                svg2.style.borderRadius = '8px';
+                            }
+                        }
+                    } catch (error) {
+                        console.error('Error generating website QR:', error);
+                    }
+                }
+                
+                setTimeout(generateTestQRs, 100);
+            });
+        </script>
+    </div>
+</body>
+</html>

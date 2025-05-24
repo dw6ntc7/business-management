@@ -1,0 +1,264 @@
+// PDF Template Utilities - Gemeinsame JavaScript-Funktionalität
+class PDFTemplateUtils {
+    constructor() {
+        this.initializeQRCode();
+        this.setupGermanNumberFormat();
+    }
+
+    // QR-Code Generierung mit qrcode-generator
+    generateQRCode(text, containerId) {
+        console.log('Generating QR Code:', text, 'for container:', containerId);
+        const container = document.getElementById(containerId);
+        if (!container) {
+            console.error('QR Container not found:', containerId);
+            return;
+        }
+        
+        // Check if qrcode-generator library is loaded
+        if (typeof qrcode === 'undefined') {
+            console.warn('qrcode-generator library not loaded yet, retrying...');
+            setTimeout(() => this.generateQRCode(text, containerId), 100);
+            return;
+        }
+        
+        try {
+            // Clear container
+            container.innerHTML = '';
+            
+            // Create QR code instance
+            const qr = qrcode(0, 'M'); // Type 0 = auto-detect, Error correction level M
+            qr.addData(text);
+            qr.make();
+            
+            // Generate SVG
+            const svgString = qr.createSvgTag({
+                cellSize: 4,
+                margin: 2,
+                scalable: true
+            });
+            
+            // Insert SVG into container
+            container.innerHTML = svgString;
+            
+            // Apply styling to SVG
+            const svg = container.querySelector('svg');
+            if (svg) {
+                svg.style.width = '120px';
+                svg.style.height = '120px';
+                svg.style.border = '1px solid #e2e8f0';
+                svg.style.borderRadius = '8px';
+                svg.style.display = 'block';
+            }
+            
+            console.log('QR Code generated successfully with SVG');
+        } catch (error) {
+            console.error('Error generating QR Code:', error);
+            // Fallback: show error message
+            container.innerHTML = '<div style="width:120px;height:120px;border:1px solid #e2e8f0;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#718096;font-size:12px;">QR-Code Fehler</div>';
+        }
+    }
+
+    // Deutsche Zahlenformatierung
+    formatGermanNumber(number) {
+        return new Intl.NumberFormat('de-DE', {
+            style: 'currency',
+            currency: 'EUR'
+        }).format(number);
+    }
+
+    // Datum formatieren
+    formatGermanDate(dateString) {
+        const date = new Date(dateString);
+        return date.toLocaleDateString('de-DE');
+    }
+
+    // PDF Download/Print mit Animation
+    downloadPDF(buttonSelector = '.download-btn') {
+        const btn = document.querySelector(buttonSelector);
+        if (btn) {
+            btn.style.transform = 'scale(0.95)';
+            btn.innerHTML = '<span>⏳</span> Generiere PDF...';
+            
+            setTimeout(() => {
+                window.print();
+                btn.style.transform = 'scale(1)';
+                btn.innerHTML = '<span>🖨️</span> Drucken';
+            }, 300);
+        } else {
+            window.print();
+        }
+    }
+
+    // QR-Code für Zahlungen
+    generatePaymentQR(iban, bic, amount, reference, recipientName) {
+        const epcQR = this.generateEPCQRCode(iban, bic, amount, reference, recipientName);
+        return epcQR;
+    }
+
+    // EPC QR-Code für SEPA-Überweisungen
+    generateEPCQRCode(iban, bic, amount, reference, recipientName) {
+        const epcData = [
+            'BCD',  // Service Tag
+            '002',  // Version
+            '1',    // Character set (UTF-8)
+            'SCT',  // Identification
+            bic || '',     // BIC
+            recipientName || '', // Beneficiary Name
+            iban || '',    // Beneficiary Account (IBAN)
+            `EUR${amount}`, // Amount
+            '',     // Purpose
+            reference || '', // Remittance Information (unstructured)
+            ''      // Remittance Information (structured)
+        ].join('\n');
+        
+        return epcData;
+    }
+
+    // QR-Code für Website/Links
+    generateWebsiteQR(url, containerId) {
+        this.generateQRCode(url, containerId);
+    }
+
+    // Initialisierung der QR-Code-Bibliothek
+    initializeQRCode() {
+        // Prüfe ob qrcode-generator bereits geladen ist
+        if (typeof qrcode === 'undefined') {
+            console.log('Loading qrcode-generator library...');
+            const script = document.createElement('script');
+            script.src = 'https://unpkg.com/qrcode-generator@1.4.4/qrcode.js';
+            script.onload = () => {
+                console.log('qrcode-generator library loaded successfully');
+                // Teste die Bibliothek
+                if (typeof qrcode !== 'undefined') {
+                    console.log('qrcode-generator is ready for use');
+                } else {
+                    console.error('qrcode-generator failed to load properly');
+                }
+            };
+            script.onerror = () => {
+                console.error('Failed to load qrcode-generator library');
+            };
+            document.head.appendChild(script);
+        } else {
+            console.log('qrcode-generator library already available');
+        }
+    }
+                window.QRCode.CorrectLevel = { L: 1, M: 0, Q: 3, H: 2 };
+                
+                // Trigger pending QR code generations
+                document.dispatchEvent(new CustomEvent('qrCodeLibraryLoaded'));
+            };
+            script.onerror = () => {
+                console.error('Failed to load QR Code library');
+            };
+            document.head.appendChild(script);
+        } else {
+            console.log('QR Code library already available');
+        }
+    }
+
+    setupGermanNumberFormat() {
+        // Event Listener für automatische Formatierung
+        document.addEventListener('DOMContentLoaded', () => {
+            const numberElements = document.querySelectorAll('.format-currency');
+            numberElements.forEach(el => {
+                const value = parseFloat(el.textContent);
+                if (!isNaN(value)) {
+                    el.textContent = this.formatGermanNumber(value);
+                }
+            });
+        });
+    }
+
+    // Status Badge Styling basierend auf Status
+    updateStatusBadge(status, element) {
+        if (!element) return;
+        
+        const statusClasses = {
+            'offen': 'status-offen',
+            'angenommen': 'status-angenommen', 
+            'bezahlt': 'status-bezahlt',
+            'abgelehnt': 'status-abgelehnt',
+            'überfällig': 'status-überfällig',
+            'storniert': 'status-storniert'
+        };
+
+        // Entferne alle Status-Klassen
+        Object.values(statusClasses).forEach(cls => {
+            element.classList.remove(cls);
+        });
+
+        // Füge die richtige Klasse hinzu
+        const statusClass = statusClasses[status.toLowerCase()];
+        if (statusClass) {
+            element.classList.add(statusClass);
+        }
+    }
+
+    // Berechne MwSt aus Brutto und Steuersatz
+    calculateVAT(gross, vatRate) {
+        const net = gross / (1 + vatRate / 100);
+        return gross - net;
+    }
+
+    // Berechne Netto aus Brutto und Steuersatz  
+    calculateNet(gross, vatRate) {
+        return gross / (1 + vatRate / 100);
+    }
+
+    // Tabellen-Summen berechnen
+    calculateTableSums(tableSelector) {
+        const table = document.querySelector(tableSelector);
+        if (!table) return { totalGross: 0, totalNet: 0, totalVAT: 0 };
+
+        let totalGross = 0;
+        let totalNet = 0;
+
+        const rows = table.querySelectorAll('tbody tr');
+        rows.forEach(row => {
+            const cells = row.querySelectorAll('td');
+            if (cells.length >= 6) {
+                const quantity = parseFloat(cells[1].textContent) || 0;
+                const gross = parseFloat(cells[2].textContent) || 0;
+                const net = parseFloat(cells[3].textContent) || 0;
+                
+                totalGross += quantity * gross;
+                totalNet += quantity * net;
+            }
+        });
+
+        const totalVAT = totalGross - totalNet;
+
+        return {
+            totalGross: totalGross,
+            totalNet: totalNet, 
+            totalVAT: totalVAT
+        };
+    }
+}
+
+// Globale Instanz erstellen
+window.pdfUtils = new PDFTemplateUtils();
+
+// Globale Funktionen für Rückwärtskompatibilität
+function DownloadPdf() {
+    window.pdfUtils.downloadPDF();
+}
+
+function GenerateQRCode(text, containerId) {
+    window.pdfUtils.generateQRCode(text, containerId);
+}
+
+function FormatGermanCurrency(amount) {
+    return window.pdfUtils.formatGermanNumber(amount);
+}
+
+// Auto-Initialisierung
+document.addEventListener('DOMContentLoaded', function() {
+    // Body-Klasse für PDF-Templates
+    if (document.querySelector('.document-container')) {
+        document.body.classList.add('pdf-template');
+    }
+
+    console.log('PDF Template Utils geladen');
+});
