@@ -1,8 +1,10 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, send_from_directory, make_response, send_file
+from flask import Flask, render_template, request, redirect, url_for, flash, send_from_directory, make_response, send_file, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from datetime import date, datetime
 import os
+import base64
+import tempfile
 from werkzeug.utils import secure_filename
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
@@ -11,6 +13,8 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
 from flask import session, g
 from datetime import timedelta
+import qrcode
+from PIL import Image, ImageDraw
 
 from db import db
 from models import CatalogPosition
@@ -1114,6 +1118,220 @@ def dynamic_colors_css():
     response.headers['Pragma'] = 'no-cache'
     response.headers['Expires'] = '0'
     return response
+
+# ===== QR-CODE GENERATOR =====
+
+@app.route('/qr-generator')
+@login_required
+def qr_generator():
+    """QR-Code Generator Seite"""
+    company = CompanySettings.query.first()
+    return render_template('qr_generator.html', company=company)
+
+@app.route('/qr-generator/generate', methods=['POST'])
+@login_required
+def generate_qr_code():
+    """QR-Code generieren und als Base64 zurückgeben"""
+    try:
+        url = request.form.get('url')
+        include_logo = 'include_logo' in request.form
+        qr_color = request.form.get('qr_color', '#000000')
+        size = int(request.form.get('size', 400))
+        
+        if not url:
+            return jsonify({'success': False, 'error': 'URL ist erforderlich'})
+        
+        # QR-Code erstellen
+        qr = qrcode.QRCode(
+            version=1,
+            error_correction=qrcode.constants.ERROR_CORRECT_H if include_logo else qrcode.constants.ERROR_CORRECT_M,
+            box_size=10,
+            border=4,
+        )
+        qr.add_data(url)
+        qr.make(fit=True)
+        
+        # QR-Code als PIL Image erstellen mit transparentem Hintergrund
+        qr_img = qr.make_image(fill_color=qr_color, back_color='white')
+        qr_img = qr_img.convert("RGBA")
+        
+        # Weißen Hintergrund durch Transparenz ersetzen
+        data = qr_img.getdata()
+        new_data = []
+        for item in data:
+            # Weiße oder fast weiße Pixel werden transparent
+            if item[0] >= 250 and item[1] >= 250 and item[2] >= 250:
+                new_data.append((255, 255, 255, 0))  # Komplett transparent
+            else:
+                # QR-Code Pixel mit voller Deckkraft beibehalten
+                new_data.append((item[0], item[1], item[2], 255))
+        qr_img.putdata(new_data)
+        
+        # Logo hinzufügen wenn gewünscht
+        if include_logo:
+            company = CompanySettings.query.first()
+            if company and company.logo_filename:
+                logo_path = os.path.join(app.instance_path, company.logo_filename)
+                if os.path.exists(logo_path):
+                    try:
+                        logo = Image.open(logo_path)
+                        
+                        # Sicherheitscheck für Bildgröße
+                        max_logo_size = 500  # Maximale Logo-Größe in Pixeln
+                        if logo.size[0] > max_logo_size or logo.size[1] > max_logo_size:
+                            # Logo verkleinern falls es zu groß ist
+                            logo.thumbnail((max_logo_size, max_logo_size), Image.Resampling.LANCZOS)
+                        
+                        logo = logo.convert("RGBA")
+                        
+                        # Logo-Größe berechnen, dabei Proportionen beibehalten
+                        # Maximale Größe: etwa 1/4 der QR-Code-Größe
+                        max_logo_dimension = min(qr_img.size) // 4
+                        
+                        # Logo proportional skalieren
+                        logo_width, logo_height = logo.size
+                        if logo_width > logo_height:
+                            # Breiteres Logo: Breite auf max_logo_dimension setzen
+                            new_width = max_logo_dimension
+                            new_height = int((logo_height * new_width) / logo_width)
+                        else:
+                            # Höheres oder quadratisches Logo: Höhe auf max_logo_dimension setzen
+                            new_height = max_logo_dimension
+                            new_width = int((logo_width * new_height) / logo_height)
+                        
+                        logo = logo.resize((new_width, new_height), Image.Resampling.LANCZOS)
+                        
+                        # QR-Code-Zentrum berechnen
+                        qr_center = (qr_img.size[0] // 2, qr_img.size[1] // 2)
+                        
+                        # Rechteckigen Bereich für Logo freiräumen (mit Rand)
+                        margin = 15  # Rand um das Logo
+                        clear_width = new_width + (margin * 2)
+                        clear_height = new_height + (margin * 2)
+                        
+                        # Bereich im QR-Code transparent machen (rechteckig)
+                        qr_data = list(qr_img.getdata())
+                        qr_width, qr_height = qr_img.size
+                        
+                        clear_left = qr_center[0] - clear_width // 2
+                        clear_right = qr_center[0] + clear_width // 2
+                        clear_top = qr_center[1] - clear_height // 2
+                        clear_bottom = qr_center[1] + clear_height // 2
+                        
+                        for y in range(qr_height):
+                            for x in range(qr_width):
+                                # Prüfen ob Pixel im rechteckigen Logo-Bereich liegt
+                                if (clear_left <= x <= clear_right and 
+                                    clear_top <= y <= clear_bottom):
+                                    # Pixel im Logo-Bereich transparent machen
+                                    index = y * qr_width + x
+                                    qr_data[index] = (255, 255, 255, 0)  # Transparent
+                        
+                        # Modifizierte Daten zurück ins Bild setzen
+                        qr_img.putdata(qr_data)
+                        
+                        # Logo direkt ohne Hintergrund einfügen
+                        # Nur einen subtilen Schatten/Kontur hinzufügen falls nötig
+                        
+                        # Logo-Position berechnen
+                        logo_pos = (qr_center[0] - new_width // 2, qr_center[1] - new_height // 2)
+                        
+                        # Prüfen ob das Logo bereits einen guten Kontrast hat
+                        # Wenn das Logo sehr hell ist, fügen wir einen subtilen Schatten hinzu
+                        logo_array = list(logo.getdata())
+                        avg_brightness = sum(sum(pixel[:3]) for pixel in logo_array if len(pixel) >= 3) / (len(logo_array) * 3)
+                        
+                        if avg_brightness > 200:  # Helles Logo - subtiler Schatten
+                            # Schatten-Layer erstellen
+                            shadow = Image.new('RGBA', (new_width + 4, new_height + 4), (0, 0, 0, 0))
+                            shadow_draw = ImageDraw.Draw(shadow)
+                            
+                            # Sehr subtiler schwarzer Schatten
+                            for offset_x in range(-1, 2):
+                                for offset_y in range(-1, 2):
+                                    if offset_x != 0 or offset_y != 0:
+                                        shadow.paste(logo, (offset_x + 2, offset_y + 2), logo)
+                            
+                            # Schatten abdunkeln
+                            shadow_data = list(shadow.getdata())
+                            shadow_darkened = []
+                            for pixel in shadow_data:
+                                if pixel[3] > 0:  # Nicht-transparente Pixel
+                                    shadow_darkened.append((0, 0, 0, min(80, pixel[3])))  # Dunkler Schatten
+                                else:
+                                    shadow_darkened.append(pixel)
+                            shadow.putdata(shadow_darkened)
+                            
+                            # Schatten zuerst einfügen
+                            shadow_pos = (qr_center[0] - shadow.width // 2, qr_center[1] - shadow.height // 2)
+                            qr_img.paste(shadow, shadow_pos, shadow)
+                        
+                        # Logo direkt einfügen
+                        qr_img.paste(logo, logo_pos, logo)
+                    except Exception as e:
+                        print(f"Logo-Fehler: {e}")
+                        # QR-Code ohne Logo fortsetzen
+                else:
+                    print(f"Logo-Datei nicht gefunden: {logo_path}")
+            else:
+                print("Kein Logo in Firmeneinstellungen oder CompanySettings nicht gefunden")
+        
+        # Auf gewünschte Größe skalieren
+        qr_img = qr_img.resize((size, size), Image.Resampling.LANCZOS)
+        
+        # Als Base64 encodieren für Anzeige
+        buffer = BytesIO()
+        qr_img.save(buffer, format='PNG')
+        buffer.seek(0)
+        img_str = base64.b64encode(buffer.getvalue()).decode()
+        
+        # QR-Code temporär speichern für Download
+        # Sicherstellen, dass instance-Verzeichnis existiert
+        os.makedirs(app.instance_path, exist_ok=True)
+        
+        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.png', dir=app.instance_path)
+        qr_img.save(temp_file.name, format='PNG')
+        temp_filename = os.path.basename(temp_file.name)
+        
+        return jsonify({
+            'success': True,
+            'image_url': f'data:image/png;base64,{img_str}',
+            'download_url': f'/qr-generator/download/{temp_filename}'
+        })
+        
+    except Exception as e:
+        print(f"QR-Code Generierungsfehler: {e}")
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/qr-generator/download/<filename>')
+@login_required
+def download_qr_code(filename):
+    """QR-Code zum Download bereitstellen"""
+    try:
+        file_path = os.path.join(app.instance_path, filename)
+        if not os.path.exists(file_path):
+            flash('Datei nicht gefunden', 'error')
+            return redirect(url_for('qr_generator'))
+        
+        def cleanup_temp_file():
+            """Temporäre Datei nach Download löschen"""
+            try:
+                if os.path.exists(file_path):
+                    os.remove(file_path)
+            except:
+                pass
+        
+        response = send_from_directory(app.instance_path, filename, as_attachment=True, download_name='qr-code.png')
+        
+        # Cleanup nach einer Minute (gibt dem Browser Zeit zum Download)
+        import threading
+        timer = threading.Timer(60.0, cleanup_temp_file)
+        timer.start()
+        
+        return response
+    except Exception as e:
+        flash('Fehler beim Download', 'error')
+        return redirect(url_for('qr_generator'))
 
 if __name__ == '__main__':
     with app.app_context():
