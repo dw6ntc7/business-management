@@ -212,7 +212,55 @@ def admin_required(f):
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    # Dashboard-Statistiken sammeln
+    total_customers = Customer.query.count()
+    total_offers = Offer.query.count()
+    total_invoices = Invoice.query.count()
+    total_projects = Project.query.count()
+    
+    # Letzte Aktivitäten
+    recent_offers = Offer.query.order_by(Offer.date.desc()).limit(5).all()
+    recent_invoices = Invoice.query.order_by(Invoice.date.desc()).limit(5).all()
+    recent_projects = Project.query.order_by(Project.date.desc()).limit(5).all()
+    
+    # Angebote nach Status
+    offers_open = Offer.query.filter_by(status='offen').count()
+    offers_accepted = Offer.query.filter_by(status='angenommen').count()
+    offers_rejected = Offer.query.filter_by(status='abgelehnt').count()
+    offers_expired = Offer.query.filter_by(status='abgelaufen').count()
+    
+    # Rechnungen nach Status
+    invoices_open = Invoice.query.filter_by(status='offen').count()
+    invoices_paid = Invoice.query.filter_by(status='bezahlt').count()
+    invoices_overdue = Invoice.query.filter_by(status='überfällig').count()
+    
+    # Umsatz-Statistiken
+    total_offer_value = sum([offer.total_gross for offer in Offer.query.all()])
+    total_invoice_value = sum([invoice.total_gross for invoice in Invoice.query.all()])
+    paid_invoice_value = sum([invoice.total_gross for invoice in Invoice.query.filter_by(status='bezahlt').all()])
+    
+    # Zahlungsfortschritt berechnen
+    payment_percentage = (paid_invoice_value / total_invoice_value * 100) if total_invoice_value > 0 else 0
+    
+    return render_template('index.html', 
+                         total_customers=total_customers,
+                         total_offers=total_offers,
+                         total_invoices=total_invoices,
+                         total_projects=total_projects,
+                         recent_offers=recent_offers,
+                         recent_invoices=recent_invoices,
+                         recent_projects=recent_projects,
+                         offers_open=offers_open,
+                         offers_accepted=offers_accepted,
+                         offers_rejected=offers_rejected,
+                         offers_expired=offers_expired,
+                         invoices_open=invoices_open,
+                         invoices_paid=invoices_paid,
+                         invoices_overdue=invoices_overdue,
+                         total_offer_value=total_offer_value,
+                         total_invoice_value=total_invoice_value,
+                         paid_invoice_value=paid_invoice_value,
+                         payment_percentage=payment_percentage)
 
 @app.route('/customers')
 def customers():
